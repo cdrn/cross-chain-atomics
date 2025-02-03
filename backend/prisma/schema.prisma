@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ExchangePrice {
+  timestamp   DateTime @db.Timestamptz
+  exchange    String   @db.VarChar(50)
+  baseAsset   String   @db.VarChar(10)
+  quoteAsset  String   @db.VarChar(10)
+  price       Decimal  @db.Decimal(24, 8)
+  volumeBase  Decimal  @db.Decimal(24, 8)
+  volumeQuote Decimal  @db.Decimal(24, 8)
+
+  @@id([timestamp, exchange, baseAsset, quoteAsset])
+  @@index([baseAsset, quoteAsset, exchange])
+}
+
+model ConsolidatedPrice {
+  timestamp        DateTime @db.Timestamptz
+  baseAsset        String   @db.VarChar(10)
+  quoteAsset       String   @db.VarChar(10)
+  vwap             Decimal  @db.Decimal(24, 8)
+  totalVolumeBase  Decimal  @db.Decimal(24, 8)
+  totalVolumeQuote Decimal  @db.Decimal(24, 8)
+  numExchanges     Int
+
+  @@id([timestamp, baseAsset, quoteAsset])
+}
+
+model VolatilityMetric {
+  timestamp      DateTime @db.Timestamptz
+  baseAsset      String   @db.VarChar(10)
+  quoteAsset     String   @db.VarChar(10)
+  volatility1h   Decimal? @db.Decimal(10, 4)
+  volatility24h  Decimal? @db.Decimal(10, 4)
+  volatility7d   Decimal? @db.Decimal(10, 4)
+  sampleCount1h  Int?
+  sampleCount24h Int?
+  sampleCount7d  Int?
+  lastUpdated    DateTime @db.Timestamptz
+
+  @@id([timestamp, baseAsset, quoteAsset])
+}
