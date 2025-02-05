@@ -39,24 +39,34 @@ export class SchedulerService {
     this.priceUpdateJob = cron.schedule("* * * * *", async () => {
       try {
         const startTime = Date.now();
-        this.logger.info("Starting price update job");
+        this.logger.info("\n=== Starting price update job ===");
 
         await this.priceAggregator.fetchAndStorePrices();
 
         const duration = Date.now() - startTime;
-        this.logger.info(`Price update job completed in ${duration}ms`);
+        this.logger.info(
+          `=== Price update job completed in ${duration}ms ===\n`
+        );
       } catch (error) {
         this.logger.error("Price update job failed:", error);
       }
     });
 
-    this.logger.info("Price update job scheduled");
+    this.logger.info("Price update job scheduled (running every minute)");
   }
 
   // Method to manually trigger a price update
   async updatePricesNow(): Promise<void> {
     try {
+      const startTime = Date.now();
+      this.logger.info("\n=== Starting manual price update ===");
+
       await this.priceAggregator.fetchAndStorePrices();
+
+      const duration = Date.now() - startTime;
+      this.logger.info(
+        `=== Manual price update completed in ${duration}ms ===\n`
+      );
     } catch (error) {
       this.logger.error("Manual price update failed:", error);
       throw error;

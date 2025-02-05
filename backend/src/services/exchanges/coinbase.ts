@@ -82,11 +82,20 @@ export class CoinbaseAdapter implements ExchangeAdapter {
       const price = parseFloat(response.data.price);
       const volume = parseFloat(response.data.volume);
 
+      if (isReversed) {
+        // For reversed pairs:
+        // - Price needs to be inverted (e.g., if ETH-BTC = 0.02843, then BTC-ETH = 1/0.02843)
+        // - Volume needs to be in terms of the original base asset
+        return {
+          price: 1 / price,
+          volume24h: volume * price, // Convert volume to original base asset
+          timestamp: new Date(response.data.time),
+        };
+      }
+
       return {
-        // If the pair is reversed, we need to invert the price
-        price: isReversed ? 1 / price : price,
-        // If the pair is reversed, we need to adjust the volume
-        volume24h: isReversed ? volume * price : volume,
+        price,
+        volume24h: volume,
         timestamp: new Date(response.data.time),
       };
     } catch (error) {

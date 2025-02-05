@@ -21,6 +21,8 @@ export class PriceAggregatorService {
 
   async fetchAndStorePrices(): Promise<void> {
     const timestamp = new Date();
+    console.log(`\nFetching prices at ${timestamp.toISOString()}`);
+
     const results = await Promise.allSettled(
       this.exchanges.map((exchange) =>
         exchange.fetchBatchPrices(this.supportedPairs)
@@ -39,8 +41,8 @@ export class PriceAggregatorService {
 
     // Process results from each exchange
     results.forEach((result, index) => {
+      const exchange = this.exchanges[index];
       if (result.status === "fulfilled") {
-        const exchange = this.exchanges[index];
         result.value.forEach((tick, symbol) => {
           try {
             const pair = exchange.parseSymbol(symbol);
@@ -53,6 +55,11 @@ export class PriceAggregatorService {
               volumeBase: new Decimal(tick.volume24h),
               volumeQuote: new Decimal(tick.price * tick.volume24h),
             });
+            console.log(
+              `[${exchange.getName()}] ${pair.baseAsset}-${pair.quoteAsset}: ${
+                tick.price
+              } (vol: ${tick.volume24h})`
+            );
           } catch (error) {
             console.error(`Error processing symbol ${symbol}:`, error);
           }
@@ -70,11 +77,13 @@ export class PriceAggregatorService {
     }
 
     // Store raw price data
+    console.log(`\nStoring ${priceData.length} price points...`);
     await prisma.exchangePrice.createMany({
       data: priceData,
     });
 
     // Calculate and store consolidated prices
+    console.log("\nCalculating consolidated prices...");
     await this.calculateConsolidatedPrices(timestamp);
   }
 
@@ -116,6 +125,10 @@ export class PriceAggregatorService {
           numExchanges: prices.length,
         },
       });
+
+      console.log(
+        `[VWAP] ${pair.baseAsset}-${pair.quoteAsset}: ${vwap} (from ${prices.length} exchanges, vol: ${totalVolumeBase})`
+      );
     }
   }
 }

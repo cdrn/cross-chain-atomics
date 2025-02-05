@@ -27,13 +27,35 @@ export class BinanceAdapter implements ExchangeAdapter {
     return "binance";
   }
 
+  private shouldReversePair(pair: AssetPair): boolean {
+    const base = pair.baseAsset.toUpperCase();
+    const quote = pair.quoteAsset.toUpperCase();
+
+    // USDT is always quote
+    if (base === "USDT") return true;
+    if (quote === "USDT") return false;
+
+    // BTC is quote except against USDT
+    if (base === "BTC") return true;
+    if (quote === "BTC") return false;
+
+    // ETH is quote except against BTC and USDT
+    if (base === "ETH" && !["BTC", "USDT"].includes(quote)) return true;
+
+    return false;
+  }
+
   formatSymbol(pair: AssetPair): string {
-    return `${pair.baseAsset}${pair.quoteAsset}`.toUpperCase();
+    // Check if we need to reverse the pair
+    const finalPair = this.shouldReversePair(pair)
+      ? { baseAsset: pair.quoteAsset, quoteAsset: pair.baseAsset }
+      : pair;
+    return `${finalPair.baseAsset}${finalPair.quoteAsset}`.toUpperCase();
   }
 
   parseSymbol(symbol: string): AssetPair {
-    // Binance common quote assets
-    const quoteAssets = ["USDT", "BTC", "ETH", "BNB", "BUSD"];
+    // Binance common quote assets in order of precedence
+    const quoteAssets = ["BTC", "ETH", "USDT", "BNB", "BUSD"];
 
     // Find the first matching quote asset
     const quoteAsset = quoteAssets.find((quote) => symbol.endsWith(quote));
