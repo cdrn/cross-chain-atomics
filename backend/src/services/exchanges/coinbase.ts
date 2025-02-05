@@ -3,19 +3,20 @@ import { RequestManager, APIError } from "../../utils/request";
 
 interface CoinbaseTickerResponse {
   price: string;
-  time: string;
-}
-
-interface CoinbaseStatsResponse {
   volume: string;
+  time: string;
 }
 
 export class CoinbaseAdapter implements ExchangeAdapter {
   private readonly baseUrl: string;
   private readonly requestManager: RequestManager;
+  // Map of pairs that need to be reversed (BTC-ETH -> ETH-BTC)
+  private readonly reversedPairs: Set<string> = new Set([
+    "BTC-ETH", // Use ETH-BTC instead
+  ]);
 
   constructor(
-    baseUrl = "https://api.pro.coinbase.com",
+    baseUrl = "https://api.exchange.coinbase.com",
     retryConfig = {
       maxRetries: 3,
       baseDelay: 1000,
@@ -45,7 +46,12 @@ export class CoinbaseAdapter implements ExchangeAdapter {
   }
 
   formatSymbol(pair: AssetPair): string {
-    return `${pair.baseAsset}-${pair.quoteAsset}`.toUpperCase();
+    const normalSymbol = `${pair.baseAsset}-${pair.quoteAsset}`.toUpperCase();
+    if (this.reversedPairs.has(normalSymbol)) {
+      // Reverse the pair for Coinbase's format
+      return `${pair.quoteAsset}-${pair.baseAsset}`.toUpperCase();
+    }
+    return normalSymbol;
   }
 
   parseSymbol(symbol: string): AssetPair {
@@ -53,27 +59,35 @@ export class CoinbaseAdapter implements ExchangeAdapter {
     if (!baseAsset || !quoteAsset) {
       throw new Error(`Unable to parse symbol: ${symbol}`);
     }
+    const normalSymbol = `${baseAsset}-${quoteAsset}`;
+    if (this.reversedPairs.has(normalSymbol)) {
+      // Reverse the pair back to our standard format
+      return { baseAsset: quoteAsset, quoteAsset: baseAsset };
+    }
     return { baseAsset, quoteAsset };
   }
 
   async fetchPrice(pair: AssetPair): Promise<PriceTick> {
     const symbol = this.formatSymbol(pair);
+    const isReversed = this.reversedPairs.has(
+      `${pair.baseAsset}-${pair.quoteAsset}`.toUpperCase()
+    );
 
     try {
-      // Fetch ticker data
-      const [statsRes, tickerRes] = await Promise.all([
-        this.requestManager.request<CoinbaseStatsResponse>({
-          url: `${this.baseUrl}/products/${symbol}/stats`,
-        }),
-        this.requestManager.request<CoinbaseTickerResponse>({
+      const response =
+        await this.requestManager.request<CoinbaseTickerResponse>({
           url: `${this.baseUrl}/products/${symbol}/ticker`,
-        }),
-      ]);
+        });
+
+      const price = parseFloat(response.data.price);
+      const volume = parseFloat(response.data.volume);
 
       return {
-        price: parseFloat(tickerRes.data.price),
-        volume24h: parseFloat(statsRes.data.volume),
-        timestamp: new Date(tickerRes.data.time),
+        // If the pair is reversed, we need to invert the price
+        price: isReversed ? 1 / price : price,
+        // If the pair is reversed, we need to adjust the volume
+        volume24h: isReversed ? volume * price : volume,
+        timestamp: new Date(response.data.time),
       };
     } catch (error) {
       if (error instanceof APIError) {
@@ -90,41 +104,15 @@ export class CoinbaseAdapter implements ExchangeAdapter {
 
   async fetchBatchPrices(pairs: AssetPair[]): Promise<Map<string, PriceTick>> {
     try {
-      // Unfortunately, Coinbase doesn't have a true batch endpoint
-      // We'll need to fetch each pair individually, but with retries and rate limiting
-      const requests = pairs.map(async (pair) => {
-        const symbol = this.formatSymbol(pair);
-        try {
-          const [statsRes, tickerRes] = await Promise.all([
-            this.requestManager.request<CoinbaseStatsResponse>({
-              url: `${this.baseUrl}/products/${symbol}/stats`,
-            }),
-            this.requestManager.request<CoinbaseTickerResponse>({
-              url: `${this.baseUrl}/products/${symbol}/ticker`,
-            }),
-          ]);
+      // Fetch prices for each pair in parallel
+      const responses = await Promise.all(
+        pairs.map((pair) => this.fetchPrice(pair))
+      );
 
-          return {
-            symbol,
-            tick: {
-              price: parseFloat(tickerRes.data.price),
-              volume24h: parseFloat(statsRes.data.volume),
-              timestamp: new Date(tickerRes.data.time),
-            },
-          };
-        } catch (error) {
-          console.warn(`Failed to fetch ${symbol} from Coinbase:`, error);
-          return null;
-        }
-      });
-
-      const results = await Promise.all(requests);
       const priceMap = new Map<string, PriceTick>();
-
-      results.forEach((result) => {
-        if (result) {
-          priceMap.set(result.symbol, result.tick);
-        }
+      pairs.forEach((pair, index) => {
+        const symbol = `${pair.baseAsset}-${pair.quoteAsset}`.toUpperCase();
+        priceMap.set(symbol, responses[index]);
       });
 
       if (priceMap.size === 0) {

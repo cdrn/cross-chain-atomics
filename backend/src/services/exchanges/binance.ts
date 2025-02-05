@@ -1,6 +1,12 @@
 import { AssetPair, ExchangeAdapter, PriceTick } from "./types";
 import { RequestManager, APIError } from "../../utils/request";
 
+interface BinanceTickerResponse {
+  symbol: string;
+  lastPrice: string;
+  volume: string;
+}
+
 export class BinanceAdapter implements ExchangeAdapter {
   private readonly baseUrl: string;
   private readonly requestManager: RequestManager;
@@ -46,21 +52,16 @@ export class BinanceAdapter implements ExchangeAdapter {
     const symbol = this.formatSymbol(pair);
 
     try {
-      // Fetch ticker data
-      const [tickerRes, volumeRes] = await Promise.all([
-        this.requestManager.request({
-          url: `${this.baseUrl}/ticker/price`,
-          params: { symbol },
-        }),
-        this.requestManager.request({
+      const response = await this.requestManager.request<BinanceTickerResponse>(
+        {
           url: `${this.baseUrl}/ticker/24hr`,
           params: { symbol },
-        }),
-      ]);
+        }
+      );
 
       return {
-        price: parseFloat(tickerRes.data.price),
-        volume24h: parseFloat(volumeRes.data.volume),
+        price: parseFloat(response.data.lastPrice),
+        volume24h: parseFloat(response.data.volume),
         timestamp: new Date(),
       };
     } catch (error) {
@@ -79,53 +80,15 @@ export class BinanceAdapter implements ExchangeAdapter {
 
   async fetchBatchPrices(pairs: AssetPair[]): Promise<Map<string, PriceTick>> {
     try {
-      // Get all symbols
-      const symbols = pairs.map((pair) => this.formatSymbol(pair));
+      // For Binance, we'll fetch prices individually since their batch endpoint is unreliable
+      const responses = await Promise.all(
+        pairs.map((pair) => this.fetchPrice(pair))
+      );
 
-      // Fetch all tickers in one request
-      const [tickersRes, volumesRes] = await Promise.all([
-        this.requestManager.request({
-          url: `${this.baseUrl}/ticker/price`,
-        }),
-        this.requestManager.request({
-          url: `${this.baseUrl}/ticker/24hr`,
-        }),
-      ]);
-
-      const priceMap = new Map<string, number>();
-      const volumeMap = new Map<string, number>();
-
-      // Index the responses
-      tickersRes.data.forEach((ticker: { symbol: string; price: string }) => {
-        if (symbols.includes(ticker.symbol)) {
-          priceMap.set(ticker.symbol, parseFloat(ticker.price));
-        }
-      });
-
-      volumesRes.data.forEach((ticker: { symbol: string; volume: string }) => {
-        if (symbols.includes(ticker.symbol)) {
-          volumeMap.set(ticker.symbol, parseFloat(ticker.volume));
-        }
-      });
-
-      // Combine the data
       const result = new Map<string, PriceTick>();
-      const timestamp = new Date();
-
-      pairs.forEach((pair) => {
+      pairs.forEach((pair, index) => {
         const symbol = this.formatSymbol(pair);
-        const price = priceMap.get(symbol);
-        const volume = volumeMap.get(symbol);
-
-        if (price !== undefined && volume !== undefined) {
-          result.set(symbol, {
-            price,
-            volume24h: volume,
-            timestamp,
-          });
-        } else {
-          console.warn(`Missing data for symbol: ${symbol}`);
-        }
+        result.set(symbol, responses[index]);
       });
 
       if (result.size === 0) {
