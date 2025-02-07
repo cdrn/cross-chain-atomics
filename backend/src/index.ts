@@ -5,16 +5,17 @@ import { SchedulerService } from "./services/scheduler";
 import { PricingService } from "./services/pricing";
 import { QuoteRequest } from "./types";
 import { parseEther } from "ethers";
+import { prisma } from "./db/client";
 
 // Load environment variables
 config();
 
-const app = express();
+export const app = express();
 const port = process.env.PORT || 3001;
 
 // Initialize services
 const pricingService = new PricingService();
-const schedulerService = new SchedulerService();
+export const schedulerService = new SchedulerService();
 
 // Middleware
 app.use(cors());
@@ -64,8 +65,202 @@ app.post("/quote", (req: Request, res: Response) => {
   }
 });
 
+// Get latest price for a trading pair
+app.get(
+  "/prices/:baseAsset/:quoteAsset",
+  async (req: Request, res: Response) => {
+    try {
+      const { baseAsset, quoteAsset } = req.params;
+
+      const latestPrice = await prisma.consolidatedPrice.findFirst({
+        where: {
+          baseAsset: baseAsset.toUpperCase(),
+          quoteAsset: quoteAsset.toUpperCase(),
+        },
+        orderBy: {
+          timestamp: "desc",
+        },
+      });
+
+      if (!latestPrice) {
+        return res
+          .status(404)
+          .json({ error: "Price not found for trading pair" });
+      }
+
+      res.json({
+        baseAsset: latestPrice.baseAsset,
+        quoteAsset: latestPrice.quoteAsset,
+        price: latestPrice.vwap.toString(),
+        timestamp: latestPrice.timestamp,
+        volume: {
+          base: latestPrice.totalVolumeBase.toString(),
+          quote: latestPrice.totalVolumeQuote.toString(),
+        },
+        numExchanges: latestPrice.numExchanges,
+      });
+    } catch (error) {
+      console.error("Error fetching price:", error);
+      res.status(500).json({ error: "Failed to fetch price" });
+    }
+  }
+);
+
+// Get historical prices for a trading pair
+app.get(
+  "/prices/:baseAsset/:quoteAsset/history",
+  async (req: Request, res: Response) => {
+    try {
+      const { baseAsset, quoteAsset } = req.params;
+      const { hours = "24" } = req.query;
+
+      const lookbackHours = parseInt(hours as string);
+      if (isNaN(lookbackHours) || lookbackHours <= 0) {
+        return res.status(400).json({ error: "Invalid hours parameter" });
+      }
+
+      const lookbackTime = new Date(
+        Date.now() - lookbackHours * 60 * 60 * 1000
+      );
+
+      const prices = await prisma.consolidatedPrice.findMany({
+        where: {
+          baseAsset: baseAsset.toUpperCase(),
+          quoteAsset: quoteAsset.toUpperCase(),
+          timestamp: {
+            gte: lookbackTime,
+          },
+        },
+        orderBy: {
+          timestamp: "asc",
+        },
+      });
+
+      res.json(
+        prices.map((p) => ({
+          timestamp: p.timestamp,
+          price: p.vwap.toString(),
+          volume: {
+            base: p.totalVolumeBase.toString(),
+            quote: p.totalVolumeQuote.toString(),
+          },
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching price history:", error);
+      res.status(500).json({ error: "Failed to fetch price history" });
+    }
+  }
+);
+
+// Get latest volatility metrics for a trading pair
+app.get(
+  "/volatility/:baseAsset/:quoteAsset",
+  async (req: Request, res: Response) => {
+    try {
+      const { baseAsset, quoteAsset } = req.params;
+
+      const latestVol = await prisma.volatilityMetric.findFirst({
+        where: {
+          baseAsset: baseAsset.toUpperCase(),
+          quoteAsset: quoteAsset.toUpperCase(),
+        },
+        orderBy: {
+          timestamp: "desc",
+        },
+      });
+
+      if (!latestVol) {
+        return res
+          .status(404)
+          .json({ error: "Volatility metrics not found for trading pair" });
+      }
+
+      res.json({
+        baseAsset: latestVol.baseAsset,
+        quoteAsset: latestVol.quoteAsset,
+        timestamp: latestVol.timestamp,
+        metrics: {
+          "1h": {
+            volatility: latestVol.volatility1h?.toString(),
+            sampleCount: latestVol.sampleCount1h,
+          },
+          "24h": {
+            volatility: latestVol.volatility24h?.toString(),
+            sampleCount: latestVol.sampleCount24h,
+          },
+          "7d": {
+            volatility: latestVol.volatility7d?.toString(),
+            sampleCount: latestVol.sampleCount7d,
+          },
+        },
+        lastUpdated: latestVol.lastUpdated,
+      });
+    } catch (error) {
+      console.error("Error fetching volatility:", error);
+      res.status(500).json({ error: "Failed to fetch volatility metrics" });
+    }
+  }
+);
+
+// Get historical volatility metrics for a trading pair
+app.get(
+  "/volatility/:baseAsset/:quoteAsset/history",
+  async (req: Request, res: Response) => {
+    try {
+      const { baseAsset, quoteAsset } = req.params;
+      const { hours = "24" } = req.query;
+
+      const lookbackHours = parseInt(hours as string);
+      if (isNaN(lookbackHours) || lookbackHours <= 0) {
+        return res.status(400).json({ error: "Invalid hours parameter" });
+      }
+
+      const lookbackTime = new Date(
+        Date.now() - lookbackHours * 60 * 60 * 1000
+      );
+
+      const metrics = await prisma.volatilityMetric.findMany({
+        where: {
+          baseAsset: baseAsset.toUpperCase(),
+          quoteAsset: quoteAsset.toUpperCase(),
+          timestamp: {
+            gte: lookbackTime,
+          },
+        },
+        orderBy: {
+          timestamp: "asc",
+        },
+      });
+
+      res.json(
+        metrics.map((m) => ({
+          timestamp: m.timestamp,
+          metrics: {
+            "1h": {
+              volatility: m.volatility1h?.toString(),
+              sampleCount: m.sampleCount1h,
+            },
+            "24h": {
+              volatility: m.volatility24h?.toString(),
+              sampleCount: m.sampleCount24h,
+            },
+            "7d": {
+              volatility: m.volatility7d?.toString(),
+              sampleCount: m.sampleCount7d,
+            },
+          },
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching volatility history:", error);
+      res.status(500).json({ error: "Failed to fetch volatility history" });
+    }
+  }
+);
+
 // Start scheduler and server
-async function start() {
+export async function start() {
   try {
     await schedulerService.start();
     console.log("Scheduler started successfully");
@@ -92,4 +287,7 @@ process.on("SIGINT", () => {
   process.exit(0);
 });
 
-start();
+// Only start the server if this file is run directly
+if (require.main === module) {
+  start();
+}

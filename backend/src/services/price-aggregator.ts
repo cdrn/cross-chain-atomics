@@ -85,6 +85,9 @@ export class PriceAggregatorService {
     // Calculate and store consolidated prices
     console.log("\nCalculating consolidated prices...");
     await this.calculateConsolidatedPrices(timestamp);
+
+    // After storing consolidated prices, update volatility metrics
+    await this.updateVolatilityMetrics(timestamp);
   }
 
   private async calculateConsolidatedPrices(timestamp: Date): Promise<void> {
@@ -129,6 +132,114 @@ export class PriceAggregatorService {
       console.log(
         `[VWAP] ${pair.baseAsset}-${pair.quoteAsset}: ${vwap} (from ${prices.length} exchanges, vol: ${totalVolumeBase})`
       );
+    }
+  }
+
+  private async calculateVolatility(
+    baseAsset: string,
+    quoteAsset: string,
+    lookbackHours: number
+  ): Promise<number> {
+    const now = new Date();
+    const lookbackTime = new Date(
+      now.getTime() - lookbackHours * 60 * 60 * 1000
+    );
+
+    // Get historical consolidated prices
+    const historicalPrices = await prisma.consolidatedPrice.findMany({
+      where: {
+        baseAsset,
+        quoteAsset,
+        timestamp: {
+          gte: lookbackTime,
+          lte: now,
+        },
+      },
+      orderBy: {
+        timestamp: "asc",
+      },
+    });
+
+    if (historicalPrices.length < 2) {
+      throw new Error(
+        `Insufficient price data for ${baseAsset}-${quoteAsset} volatility calculation`
+      );
+    }
+
+    // Calculate log returns
+    const returns: number[] = [];
+    for (let i = 1; i < historicalPrices.length; i++) {
+      const currentPrice = historicalPrices[i].vwap;
+      const previousPrice = historicalPrices[i - 1].vwap;
+      returns.push(
+        Math.log(currentPrice.toNumber() / previousPrice.toNumber())
+      );
+    }
+
+    // Calculate standard deviation of returns
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance =
+      returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) /
+      (returns.length - 1);
+    const stdDev = Math.sqrt(variance);
+
+    // Annualize volatility (assuming prices are collected every minute)
+    const minutesPerYear = 365 * 24 * 60;
+    const annualizedVol =
+      stdDev * Math.sqrt(minutesPerYear / (lookbackHours * 60));
+
+    return annualizedVol;
+  }
+
+  private async updateVolatilityMetrics(timestamp: Date): Promise<void> {
+    console.log("\nCalculating volatility metrics...");
+
+    for (const pair of this.supportedPairs) {
+      try {
+        // Calculate volatilities for different time windows
+        const volatility1h = await this.calculateVolatility(
+          pair.baseAsset,
+          pair.quoteAsset,
+          1
+        );
+        const volatility24h = await this.calculateVolatility(
+          pair.baseAsset,
+          pair.quoteAsset,
+          24
+        );
+        const volatility7d = await this.calculateVolatility(
+          pair.baseAsset,
+          pair.quoteAsset,
+          24 * 7
+        );
+
+        await prisma.volatilityMetric.create({
+          data: {
+            timestamp,
+            baseAsset: pair.baseAsset,
+            quoteAsset: pair.quoteAsset,
+            volatility1h,
+            volatility24h,
+            volatility7d,
+            sampleCount1h: 60, // Assuming 1 sample per minute
+            sampleCount24h: 24 * 60,
+            sampleCount7d: 7 * 24 * 60,
+            lastUpdated: new Date(),
+          },
+        });
+
+        console.log(
+          `[VOL] ${pair.baseAsset}-${pair.quoteAsset}: ` +
+            `1h=${(volatility1h * 100).toFixed(2)}% ` +
+            `24h=${(volatility24h * 100).toFixed(2)}% ` +
+            `7d=${(volatility7d * 100).toFixed(2)}%`
+        );
+      } catch (error) {
+        console.error(
+          `Error calculating volatility for ${pair.baseAsset}-${pair.quoteAsset}:`,
+          error
+        );
+      }
     }
   }
 }

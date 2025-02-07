@@ -122,80 +122,26 @@ describe("PriceAggregatorService", () => {
     mockCoinbaseAdapter.fetchBatchPrices.mockResolvedValue(coinbasePrices);
 
     // Mock findMany to return test data
-    prismaMock.exchangePrice.findMany.mockImplementation((args: any) => {
-      const { baseAsset, quoteAsset } = args.where;
-      if (baseAsset === "BTC" && quoteAsset === "ETH") {
-        return Promise.resolve([
-          {
-            id: 1,
-            timestamp: new Date(),
-            exchange: "binance",
-            baseAsset: "BTC",
-            quoteAsset: "ETH",
-            price: new Decimal(20.5),
-            volumeBase: new Decimal(100.0),
-            volumeQuote: new Decimal(2050.0),
-          },
-          {
-            id: 2,
-            timestamp: new Date(),
-            exchange: "coinbase",
-            baseAsset: "BTC",
-            quoteAsset: "ETH",
-            price: new Decimal(20.6),
-            volumeBase: new Decimal(150.0),
-            volumeQuote: new Decimal(3090.0),
-          },
-        ]);
-      } else if (baseAsset === "ETH" && quoteAsset === "USDT") {
-        return Promise.resolve([
-          {
-            id: 3,
-            timestamp: new Date(),
-            exchange: "binance",
-            baseAsset: "ETH",
-            quoteAsset: "USDT",
-            price: new Decimal(2500.0),
-            volumeBase: new Decimal(1000.0),
-            volumeQuote: new Decimal(2500000.0),
-          },
-          {
-            id: 4,
-            timestamp: new Date(),
-            exchange: "coinbase",
-            baseAsset: "ETH",
-            quoteAsset: "USDT",
-            price: new Decimal(2505.0),
-            volumeBase: new Decimal(1200.0),
-            volumeQuote: new Decimal(3006000.0),
-          },
-        ]);
-      } else if (baseAsset === "BTC" && quoteAsset === "USDT") {
-        return Promise.resolve([
-          {
-            id: 5,
-            timestamp: new Date(),
-            exchange: "binance",
-            baseAsset: "BTC",
-            quoteAsset: "USDT",
-            price: new Decimal(50000.0),
-            volumeBase: new Decimal(500.0),
-            volumeQuote: new Decimal(25000000.0),
-          },
-          {
-            id: 6,
-            timestamp: new Date(),
-            exchange: "coinbase",
-            baseAsset: "BTC",
-            quoteAsset: "USDT",
-            price: new Decimal(50100.0),
-            volumeBase: new Decimal(600.0),
-            volumeQuote: new Decimal(30060000.0),
-          },
-        ]);
-      }
-      return Promise.resolve([]);
-    });
+    prismaMock.exchangePrice.findMany.mockResolvedValue([
+      {
+        timestamp: new Date(),
+        exchange: "binance",
+        baseAsset: "BTC",
+        quoteAsset: "ETH",
+        price: new Decimal(20.5),
+        volumeBase: new Decimal(100.0),
+        volumeQuote: new Decimal(2050.0),
+      },
+      {
+        timestamp: new Date(),
+        exchange: "coinbase",
+        baseAsset: "BTC",
+        quoteAsset: "ETH",
+        price: new Decimal(20.6),
+        volumeBase: new Decimal(150.0),
+        volumeQuote: new Decimal(3090.0),
+      },
+    ]);
   });
 
   describe("fetchAndStorePrices", () => {

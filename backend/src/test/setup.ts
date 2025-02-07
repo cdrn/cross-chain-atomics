@@ -1,28 +1,35 @@
 import { PrismaClient } from "@prisma/client";
-import { mockDeep, mockReset, DeepMockProxy } from "jest-mock-extended";
-import { prisma } from "../db/client";
 import { jest } from "@jest/globals";
 
+// Create a mock PrismaClient with type assertions
+const mockPrisma = {
+  consolidatedPrice: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+  },
+  volatilityMetric: {
+    findFirst: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+  },
+  exchangePrice: {
+    findMany: jest.fn(),
+    createMany: jest.fn(),
+  },
+  $queryRaw: jest.fn(),
+} as any as jest.Mocked<PrismaClient>;
+
+// Mock the prisma module
 jest.mock("../db/client", () => ({
   __esModule: true,
-  prisma: mockDeep<PrismaClient>(),
+  prisma: mockPrisma,
 }));
 
 jest.mock("axios");
 
 beforeEach(() => {
-  mockReset(prismaMock);
+  jest.clearAllMocks();
 });
 
-type PrismaMock = DeepMockProxy<PrismaClient> & {
-  $queryRaw: jest.Mock;
-  exchangePrice: {
-    findMany: jest.Mock;
-    createMany: jest.Mock;
-  };
-  consolidatedPrice: {
-    create: jest.Mock;
-  };
-};
-
-export const prismaMock = prisma as unknown as PrismaMock;
+export const prismaMock = mockPrisma;
