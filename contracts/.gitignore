@@ -15,7 +15,6 @@ package-lock.json
 
 # Environment variables
 .env
-.env.*
 
 # Coverage directory used by tools like solidity-coverage
 coverage/
