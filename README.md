@@ -1,6 +1,28 @@
 # Cross-Chain Atomics
 
-A platform for executing cross-chain atomic swaps between Bitcoin and Ethereum.
+A platform for executing cross-chain atomic swaps between Bitcoin and Ethereum. This is an attempt to create feasible cross chain atomic swaps by pricing in opton volatility as a part of the price. Here's a quick overview of how it should work.
+
+```
+Taker (has ETH)                    Maker (has BTC)
+|                                     |
+|<-- Receive hash (h) from Maker ----.|
+|                                     |
+|-- Lock ETH with (h,t1) ------------>|
+|                                     |
+|<---- Verify ETH locked -------------|
+|                                     |
+|<---- Lock BTC with (h,t2) ---------|
+|                                     |
+|<---- Maker claims ETH with s -------|
+|                                     |
+|-- Observe s on ETH chain --------->.|
+|                                     |
+|-- Claim BTC with revealed s ------->|
+```
+
+The `Maker`'s price in the first pass should be determined by the scholes-equation over the period of the timelock. In this way, we're attempting to "price in" the volatility of the asset pair for the period of the time lock. This should economically incentivise the maker to follow through with the swap.
+
+`Takers` are disincetivised from wasting `Makers`' time through the provisioning of an upfront fee to generate a quote and create an order.
 
 ## Project Structure
 
