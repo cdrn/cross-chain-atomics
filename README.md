@@ -1,6 +1,6 @@
 # Cross-Chain Atomics
 
-A platform for executing cross-chain atomic swaps between Bitcoin and Ethereum. This is an attempt to create feasible cross chain atomic swaps by pricing in opton volatility as a part of the price. Here's a quick overview of how it should work.
+A platform for executing cross-chain atomic swaps between Bitcoin and Ethereum. This is an attempt to create feasible cross chain atomic swaps by pricing in volatility up to the duration of the commited timelock. Here's a quick overview of how it should work.
 
 ```
 Taker (has ETH)                    Maker (has BTC)

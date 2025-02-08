@@ -1,0 +1,32 @@
+# Hardhat files
+cache/
+artifacts/
+typechain-types/
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment variables
+.env
+.env.*
+
+# Coverage directory used by tools like solidity-coverage
+coverage/
+coverage.json
+
+# Hardhat local network files
+deployments/localhost/
+
+# Gas reporter output
+gas-report.txt
+
+# Temporary files
+*.log
+.DS_Store 
