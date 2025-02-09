@@ -5,17 +5,26 @@ A platform for executing cross-chain atomic swaps between Bitcoin and Ethereum. 
 ```
 Taker (has ETH)                    Maker (has BTC)
 |                                     |
-|<-- Receive hash (h) from Maker ----.|
+|-- Request quote ------------------>.|
 |                                     |
-|-- Lock ETH with (h,t1) ------------>|
+|<-- Quote (amount, premium, t) ------|
+|                                     |
+|-- Accept quote ------------------->.|
+|                                     |
+|                                     |-- Generate secret (s) ------->|
+|                                     |-- Calculate hash (h=H(s)) --->|
+|                                     |
+|                                     |-- Lock BTC with (h,t1) ----->|
+|                                     |
+|<---- Notify BTC locked -------------|
+|                                     |
+|-- Lock ETH with (h,t2) ------------>|
 |                                     |
 |<---- Verify ETH locked -------------|
 |                                     |
-|<---- Lock BTC with (h,t2) ---------|
-|                                     |
 |<---- Maker claims ETH with s -------|
 |                                     |
-|-- Observe s on ETH chain --------->.|
+|-- Observe s on ETH chain ---------->|
 |                                     |
 |-- Claim BTC with revealed s ------->|
 ```

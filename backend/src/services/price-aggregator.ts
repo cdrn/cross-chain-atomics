@@ -13,7 +13,7 @@ export class PriceAggregatorService {
 
     // Define supported trading pairs
     this.supportedPairs = [
-      { baseAsset: "BTC", quoteAsset: "ETH" },
+      { baseAsset: "ETH", quoteAsset: "BTC" },
       { baseAsset: "ETH", quoteAsset: "USDT" },
       { baseAsset: "BTC", quoteAsset: "USDT" },
     ];

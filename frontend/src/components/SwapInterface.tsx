@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useAtomicSwap } from "../hooks/useAtomicSwap";
-import { SwapOrder } from "../types";
 import { Settings } from "./Settings";
+import { SwapForm } from "./SwapForm";
+import { ethers } from "ethers";
 
 export function SwapInterface() {
   const [ethConnected, setEthConnected] = useState(false);
@@ -45,150 +46,106 @@ export function SwapInterface() {
     }
   };
 
-  const renderStep = () => {
-    switch (state.currentStep) {
-      case "init":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Start New Swap</h2>
-            <button
-              onClick={() => {
-                // TODO: Replace with actual order from backend
-                const mockOrder: SwapOrder = {
-                  id: "0x123",
-                  maker: "0x456",
-                  makerChain: "bitcoin",
-                  takerChain: "ethereum",
-                  makerAmount: "1000000000000000000", // 1 BTC in sats
-                  takerAmount: "1000000000000000000", // 1 ETH in wei
-                  expiryTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-                  premium: "100000000000000000", // 0.1 ETH in wei
-                  status: "open",
-                  createdAt: Date.now(),
-                  updatedAt: Date.now(),
-                };
-                initializeSwap(mockOrder);
-              }}
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-              disabled={!ethConnected}
-            >
-              Start New Swap
-            </button>
-            {!ethConnected && (
-              <p className="text-sm text-gray-600">
-                Please connect your ETH wallet to start a swap
-              </p>
-            )}
-          </div>
-        );
+  const handleSwapSubmit = async (values: {
+    ethAmount: string;
+    btcAmount: string;
+    makerAddress: string;
+  }) => {
+    const mockOrder = {
+      id: "0x" + Math.random().toString(16).substring(2),
+      maker: values.makerAddress,
+      makerChain: "bitcoin" as const,
+      takerChain: "ethereum" as const,
+      makerAmount: ethers.parseUnits(values.btcAmount, 8).toString(), // BTC amount in sats
+      takerAmount: ethers.parseEther(values.ethAmount).toString(), // ETH amount in wei
+      expiryTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+      premium: (ethers.parseEther(values.ethAmount) / 10n).toString(), // 10% premium
+      status: "open" as const,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
 
-      case "ethLock":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Lock ETH</h2>
-            <p className="text-gray-600">
-              Lock your ETH to start the atomic swap process.
-            </p>
-            <button
-              onClick={lockEth}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Lock ETH
-            </button>
-            {ethTx && (
-              <div className="text-sm text-gray-600">
-                Transaction: {ethTx.hash}
-                <br />
-                Status: {ethTx.status}
-                <br />
-                Confirmations: {ethTx.confirmations}
-              </div>
-            )}
-          </div>
-        );
+    await initializeSwap(mockOrder);
+  };
 
-      case "btcLock":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Waiting for BTC Lock</h2>
-            <p className="text-gray-600">
-              Waiting for the maker to lock their Bitcoin...
-            </p>
-            {btcTx && (
-              <div className="text-sm text-gray-600">
-                Transaction: {btcTx.hash}
-                <br />
-                Status: {btcTx.status}
-                <br />
-                Confirmations: {btcTx.confirmations}
-              </div>
-            )}
-          </div>
-        );
-
-      case "ethClaim":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Waiting for ETH Claim</h2>
-            <p className="text-gray-600">
-              Waiting for the maker to claim the locked ETH...
-            </p>
-          </div>
-        );
-
-      case "btcClaim":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">Claim BTC</h2>
-            <p className="text-gray-600">
-              The maker has claimed the ETH. You can now claim the BTC.
-            </p>
-            <button
-              onClick={() => claimBtc("raw_tx_here")} // TODO: Get actual raw tx
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-            >
-              Claim BTC
-            </button>
-          </div>
-        );
-
-      case "completed":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-green-500">
-              Swap Completed!
-            </h2>
-            <p className="text-gray-600">
-              The atomic swap has been successfully completed.
-            </p>
-          </div>
-        );
-
-      case "failed":
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold text-red-500">Swap Failed</h2>
-            <p className="text-gray-600">
-              {error || "The swap has failed. You can try to refund your ETH."}
-            </p>
-            {order && (
-              <button
-                onClick={() => refundEth(order.id)}
-                className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded"
-              >
-                Refund ETH
-              </button>
-            )}
-          </div>
-        );
+  const renderSwapProgress = () => {
+    if (state.currentStep === "init") {
+      return null;
     }
+
+    return (
+      <div className="mt-8 space-y-6">
+        <div className="flex justify-between">
+          {[
+            { step: "ethLock", label: "Lock ETH", emoji: "🔒" },
+            { step: "btcLock", label: "Lock BTC", emoji: "₿" },
+            { step: "ethClaim", label: "Claim ETH", emoji: "🔑" },
+            { step: "btcClaim", label: "Claim BTC", emoji: "💎" },
+            { step: "completed", label: "Done", emoji: "✨" },
+          ].map(({ step, label, emoji }) => (
+            <div
+              key={step}
+              className={`flex flex-col items-center ${
+                state.currentStep === step ? "opacity-100" : "opacity-50"
+              }`}
+            >
+              <span className="text-2xl mb-1">{emoji}</span>
+              <span className="text-sm">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-700 p-4 rounded-lg">{error}</div>
+        )}
+
+        {ethTx && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-medium mb-2">ETH Transaction</h3>
+            <div className="text-sm text-gray-600">
+              <p>Hash: {ethTx.hash}</p>
+              <p>Status: {ethTx.status}</p>
+              <p>Confirmations: {ethTx.confirmations}</p>
+            </div>
+          </div>
+        )}
+
+        {btcTx && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="font-medium mb-2">BTC Transaction</h3>
+            <div className="text-sm text-gray-600">
+              <p>Hash: {btcTx.hash}</p>
+              <p>Status: {btcTx.status}</p>
+              <p>Confirmations: {btcTx.confirmations}</p>
+            </div>
+          </div>
+        )}
+
+        {state.currentStep === "ethLock" && (
+          <button
+            onClick={lockEth}
+            className="w-full py-3 px-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          >
+            Lock ETH
+          </button>
+        )}
+
+        {state.currentStep === "failed" && order && (
+          <button
+            onClick={() => refundEth(order.id)}
+            className="w-full py-3 px-4 bg-red-500 text-white rounded-lg hover:bg-red-600"
+          >
+            Refund ETH
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
     <div>
       {/* Header with Wallet Connection */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold">Atomic Swap</h1>
         <div className="flex items-center space-x-4">
           <button
             onClick={handleConnectEth}
@@ -209,33 +166,14 @@ export function SwapInterface() {
         </div>
       </div>
 
-      {/* Progress Steps */}
-      <div className="mb-8">
-        <div className="flex justify-between">
-          {[
-            { step: "init", label: "Start", icon: "🚀" },
-            { step: "ethLock", label: "Lock ETH", icon: "🔒" },
-            { step: "btcLock", label: "Lock BTC", icon: "₿" },
-            { step: "ethClaim", label: "Claim ETH", icon: "🔑" },
-            { step: "btcClaim", label: "Claim BTC", icon: "💎" },
-            { step: "completed", label: "Done", icon: "✨" },
-          ].map(({ step, label, icon }) => (
-            <div key={step} className="flex flex-col items-center">
-              <div
-                className={`text-2xl mb-2 ${
-                  state.currentStep === step ? "opacity-100" : "opacity-30"
-                }`}
-              >
-                {icon}
-              </div>
-              <span className="text-sm font-medium text-gray-600">{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Swap Form */}
+      <SwapForm
+        onSubmit={handleSwapSubmit}
+        disabled={!ethConnected || state.currentStep !== "init"}
+      />
 
-      {/* Current Step */}
-      <div className="bg-white rounded-lg p-6">{renderStep()}</div>
+      {/* Swap Progress */}
+      {renderSwapProgress()}
 
       {/* Settings Modal */}
       <Settings
@@ -244,14 +182,6 @@ export function SwapInterface() {
         onSave={handleSaveSettings}
         currentChainId={chainId}
       />
-
-      {/* Debug Info */}
-      <div className="mt-8 p-4 bg-gray-100 rounded-lg">
-        <h3 className="text-sm font-bold mb-2">Debug Info</h3>
-        <pre className="text-xs overflow-auto">
-          {JSON.stringify({ state, order, ethTx, btcTx }, null, 2)}
-        </pre>
-      </div>
     </div>
   );
 }

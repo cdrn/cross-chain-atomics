@@ -36,8 +36,8 @@ export class BinanceAdapter implements ExchangeAdapter {
     if (quote === "USDT") return false;
 
     // BTC is quote except against USDT
-    if (base === "BTC") return true;
-    if (quote === "BTC") return false;
+    if (base === "BTC") return false;
+    if (quote === "BTC") return true;
 
     // ETH is quote except against BTC and USDT
     if (base === "ETH" && !["BTC", "USDT"].includes(quote)) return true;
