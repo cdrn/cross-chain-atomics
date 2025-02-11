@@ -6,6 +6,7 @@ import { PricingService } from "./services/pricing";
 import { QuoteRequest } from "./types";
 import { parseEther } from "ethers";
 import { prisma } from "./db/client";
+import { RFQService } from "./services/rfq";
 
 // Load environment variables
 config();
@@ -16,6 +17,7 @@ const port = process.env.PORT || 3001;
 // Initialize services
 const pricingService = new PricingService();
 export const schedulerService = new SchedulerService();
+const rfqService = new RFQService();
 
 // Middleware
 app.use(cors());
@@ -255,6 +257,90 @@ app.get(
     } catch (error) {
       console.error("Error fetching volatility history:", error);
       res.status(500).json({ error: "Failed to fetch volatility history" });
+    }
+  }
+);
+
+// RFQ Endpoints
+
+// Create a new RFQ request
+app.post("/rfq/request", async (req: Request, res: Response) => {
+  try {
+    const request = await rfqService.createRequest(req.body);
+    res.json(request);
+  } catch (error) {
+    console.error("Error creating RFQ request:", error);
+    res.status(500).json({ error: "Failed to create RFQ request" });
+  }
+});
+
+// Submit a quote for an RFQ request
+app.post("/rfq/quote", async (req: Request, res: Response) => {
+  try {
+    const quote = await rfqService.submitQuote(req.body);
+    res.json(quote);
+  } catch (error) {
+    console.error("Error submitting quote:", error);
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+// Accept a quote
+app.post("/rfq/quote/:quoteId/accept", async (req: Request, res: Response) => {
+  try {
+    const { quoteId } = req.params;
+    const { requesterAddress } = req.body;
+
+    if (!requesterAddress) {
+      return res.status(400).json({ error: "Requester address is required" });
+    }
+
+    const order = await rfqService.acceptQuote(quoteId, requesterAddress);
+    res.json(order);
+  } catch (error) {
+    console.error("Error accepting quote:", error);
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+// Register a new solver
+app.post("/rfq/solver", async (req: Request, res: Response) => {
+  try {
+    const solver = await rfqService.registerSolver(req.body);
+    res.json(solver);
+  } catch (error) {
+    console.error("Error registering solver:", error);
+    res.status(400).json({ error: (error as Error).message });
+  }
+});
+
+// Get active RFQ requests
+app.get("/rfq/requests/active", async (req: Request, res: Response) => {
+  try {
+    const requests = await rfqService.getActiveRequests();
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching active requests:", error);
+    res.status(500).json({ error: "Failed to fetch active requests" });
+  }
+});
+
+// Get best quote for a request
+app.get(
+  "/rfq/request/:requestId/best-quote",
+  async (req: Request, res: Response) => {
+    try {
+      const { requestId } = req.params;
+      const quote = await rfqService.getBestQuote(requestId);
+
+      if (!quote) {
+        return res.status(404).json({ error: "No quotes found for request" });
+      }
+
+      res.json(quote);
+    } catch (error) {
+      console.error("Error fetching best quote:", error);
+      res.status(500).json({ error: "Failed to fetch best quote" });
     }
   }
 );

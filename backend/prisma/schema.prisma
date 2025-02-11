@@ -46,3 +46,97 @@ model VolatilityMetric {
 
   @@id([timestamp, baseAsset, quoteAsset])
 }
+
+// RFQ Models
+model Solver {
+  id             String   @id @default(uuid())
+  name           String
+  address        String
+  supportedPairs Json // Array of { baseAsset: string, quoteAsset: string, chain: string }
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  quotes RFQQuote[]
+  orders RFQOrder[]
+
+  @@index([address])
+}
+
+model RFQRequest {
+  id               String   @id @default(uuid())
+  baseAsset        String   @db.VarChar(10)
+  quoteAsset       String   @db.VarChar(10)
+  baseChain        String   @db.VarChar(20)
+  quoteChain       String   @db.VarChar(20)
+  amount           Decimal  @db.Decimal(36, 18)
+  direction        String   @db.VarChar(4) // "buy" or "sell"
+  timeToLive       Int // seconds
+  requesterAddress String
+  status           String   @db.VarChar(10)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  quotes RFQQuote[]
+  order  RFQOrder?
+
+  @@index([baseAsset, quoteAsset])
+  @@index([status])
+  @@index([requesterAddress])
+}
+
+model RFQQuote {
+  id          String   @id @default(uuid())
+  requestId   String
+  solverId    String
+  baseAmount  Decimal  @db.Decimal(36, 18)
+  quoteAmount Decimal  @db.Decimal(36, 18)
+  premium     Decimal  @db.Decimal(36, 18)
+  expiryTime  Int
+  signature   String?  @db.Text
+  status      String   @db.VarChar(10)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  request RFQRequest @relation(fields: [requestId], references: [id])
+  solver  Solver     @relation(fields: [solverId], references: [id])
+  order   RFQOrder?
+
+  @@index([requestId])
+  @@index([solverId])
+  @@index([status])
+}
+
+model RFQOrder {
+  id               String   @id @default(uuid())
+  requestId        String   @unique
+  quoteId          String   @unique
+  solverId         String
+  requesterAddress String
+  solverAddress    String
+  baseAsset        String   @db.VarChar(10)
+  quoteAsset       String   @db.VarChar(10)
+  baseChain        String   @db.VarChar(20)
+  quoteChain       String   @db.VarChar(20)
+  baseAmount       Decimal  @db.Decimal(36, 18)
+  quoteAmount      Decimal  @db.Decimal(36, 18)
+  premium          Decimal  @db.Decimal(36, 18)
+  timelock         Int
+  status           String   @db.VarChar(20)
+  baseTxHash       String?
+  quoteTxHash      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  request RFQRequest @relation(fields: [requestId], references: [id])
+  quote   RFQQuote   @relation(fields: [quoteId], references: [id])
+  solver  Solver     @relation(fields: [solverId], references: [id])
+
+  @@index([status])
+  @@index([requesterAddress])
+  @@index([solverAddress])
+}
