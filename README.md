@@ -1,5 +1,8 @@
 # Cross-Chain Atomics
 
+[![Test](https://github.com/cdrn/cross-chain-atomics/actions/workflows/test.yml/badge.svg)](https://github.com/cdrn/cross-chain-atomics/actions/workflows/test.yml)
+[![Lint](https://github.com/cdrn/cross-chain-atomics/actions/workflows/lint.yml/badge.svg)](https://github.com/cdrn/cross-chain-atomics/actions/workflows/lint.yml)
+
 A platform for executing cross-chain atomic swaps between Bitcoin and Ethereum. This is an attempt to create feasible cross chain atomic swaps by pricing in volatility up to the duration of the commited timelock. Here's a quick overview of how it should work.
 
 ```
