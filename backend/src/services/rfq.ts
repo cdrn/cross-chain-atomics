@@ -111,6 +111,15 @@ export class RFQService {
         throw new Error("Invalid or expired quote");
       }
 
+      // Check if quote has expired
+      if (quote.expiryTime < Math.floor(Date.now() / 1000)) {
+        await tx.rFQQuote.update({
+          where: { id: quoteId },
+          data: { status: "expired" },
+        });
+        throw new Error("Invalid or expired quote");
+      }
+
       if (quote.request.requesterAddress !== requesterAddress) {
         throw new Error("Unauthorized");
       }
