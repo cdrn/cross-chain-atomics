@@ -167,8 +167,8 @@ describe("PriceAggregatorService", () => {
         }
       ).mock.calls[0][0] as MockCreateCall;
       expect(btcEthCall.data).toMatchObject({
-        baseAsset: "BTC",
-        quoteAsset: "ETH",
+        baseAsset: "ETH",
+        quoteAsset: "BTC",
         numExchanges: 2,
       });
       expect(Number(btcEthCall.data.vwap)).toBeCloseTo(20.56, 2); // Weighted average of 20.5 and 20.6

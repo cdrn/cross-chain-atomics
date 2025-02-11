@@ -17,6 +17,31 @@ const mockPrisma = {
     findMany: jest.fn(),
     createMany: jest.fn(),
   },
+  rFQRequest: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+  },
+  rFQQuote: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+  },
+  rFQOrder: {
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+  },
+  solver: {
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+  },
+  $transaction: jest.fn(),
   $queryRaw: jest.fn(),
 } as any as jest.Mocked<PrismaClient>;
 
