@@ -96,34 +96,34 @@ export class RFQService {
     quoteId: string,
     requesterAddress: string
   ): Promise<RFQOrder> {
-    // Start a transaction since we need to update multiple records
-    return prisma.$transaction(async (tx) => {
-      // Get the quote and related data
-      const quote = await tx.rFQQuote.findUnique({
+    // Get the quote first to check expiry
+    const quote = await prisma.rFQQuote.findUnique({
+      where: { id: quoteId },
+      include: {
+        request: true,
+        solver: true,
+      },
+    });
+
+    if (!quote || quote.status !== "pending") {
+      throw new Error("Invalid or expired quote");
+    }
+
+    // Check if quote has expired
+    if (quote.expiryTime < Math.floor(Date.now() / 1000)) {
+      await prisma.rFQQuote.update({
         where: { id: quoteId },
-        include: {
-          request: true,
-          solver: true,
-        },
+        data: { status: "expired" },
       });
+      throw new Error("Invalid or expired quote");
+    }
 
-      if (!quote || quote.status !== "pending") {
-        throw new Error("Invalid or expired quote");
-      }
+    if (quote.request.requesterAddress !== requesterAddress) {
+      throw new Error("Unauthorized");
+    }
 
-      // Check if quote has expired
-      if (quote.expiryTime < Math.floor(Date.now() / 1000)) {
-        await tx.rFQQuote.update({
-          where: { id: quoteId },
-          data: { status: "expired" },
-        });
-        throw new Error("Invalid or expired quote");
-      }
-
-      if (quote.request.requesterAddress !== requesterAddress) {
-        throw new Error("Unauthorized");
-      }
-
+    // Start a transaction for the remaining operations
+    return prisma.$transaction(async (tx) => {
       // Create the order
       const order = await tx.rFQOrder.create({
         data: {
@@ -168,19 +168,33 @@ export class RFQService {
   async registerSolver(
     solver: Omit<Solver, "id" | "createdAt" | "updatedAt">
   ): Promise<Solver> {
-    // Verify the solver's address is valid
-    if (!ethers.isAddress(solver.address)) {
-      throw new Error("Invalid solver address");
+    try {
+      const result = await prisma.solver.create({
+        data: {
+          name: solver.name,
+          address: solver.address,
+          supportedPairs: solver.supportedPairs,
+          active: solver.active ?? true,
+        },
+      });
+
+      if (!result) {
+        throw new Error("Failed to create solver");
+      }
+
+      return {
+        id: result.id,
+        name: result.name,
+        address: result.address,
+        supportedPairs: result.supportedPairs as Solver["supportedPairs"],
+        active: result.active,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+      };
+    } catch (error) {
+      console.error("Error creating solver:", error);
+      throw error;
     }
-
-    const result = await prisma.solver.create({
-      data: solver,
-    });
-
-    return {
-      ...result,
-      supportedPairs: result.supportedPairs as Solver["supportedPairs"],
-    };
   }
 
   async getBestQuote(requestId: string): Promise<RFQQuote | null> {
