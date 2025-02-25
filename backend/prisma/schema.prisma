@@ -8,7 +8,7 @@ datasource db {
 }
 
 model ExchangePrice {
-  timestamp   DateTime @db.Timestamptz
+  timestamp   DateTime @db.Timestamptz(6)
   exchange    String   @db.VarChar(50)
   baseAsset   String   @db.VarChar(10)
   quoteAsset  String   @db.VarChar(10)
@@ -21,7 +21,7 @@ model ExchangePrice {
 }
 
 model ConsolidatedPrice {
-  timestamp        DateTime @db.Timestamptz
+  timestamp        DateTime @db.Timestamptz(6)
   baseAsset        String   @db.VarChar(10)
   quoteAsset       String   @db.VarChar(10)
   vwap             Decimal  @db.Decimal(24, 8)
@@ -33,7 +33,7 @@ model ConsolidatedPrice {
 }
 
 model VolatilityMetric {
-  timestamp      DateTime @db.Timestamptz
+  timestamp      DateTime @db.Timestamptz(6)
   baseAsset      String   @db.VarChar(10)
   quoteAsset     String   @db.VarChar(10)
   volatility1h   Decimal? @db.Decimal(10, 4)
@@ -42,45 +42,40 @@ model VolatilityMetric {
   sampleCount1h  Int?
   sampleCount24h Int?
   sampleCount7d  Int?
-  lastUpdated    DateTime @db.Timestamptz
+  lastUpdated    DateTime @db.Timestamptz(6)
 
   @@id([timestamp, baseAsset, quoteAsset])
 }
 
-// RFQ Models
 model Solver {
-  id             String   @id @default(uuid())
+  id             String     @id @default(uuid())
   name           String
   address        String
-  supportedPairs Json // Array of { baseAsset: string, quoteAsset: string, chain: string }
-  active         Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  quotes RFQQuote[]
-  orders RFQOrder[]
+  supportedPairs Json
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  orders         RFQOrder[]
+  quotes         RFQQuote[]
 
   @@index([address])
 }
 
 model RFQRequest {
-  id               String   @id @default(uuid())
-  baseAsset        String   @db.VarChar(10)
-  quoteAsset       String   @db.VarChar(10)
-  baseChain        String   @db.VarChar(20)
-  quoteChain       String   @db.VarChar(20)
-  amount           Decimal  @db.Decimal(36, 18)
-  direction        String   @db.VarChar(4) // "buy" or "sell"
-  timeToLive       Int // seconds
+  id               String     @id @default(uuid())
+  baseAsset        String     @db.VarChar(10)
+  quoteAsset       String     @db.VarChar(10)
+  baseChain        String     @db.VarChar(20)
+  quoteChain       String     @db.VarChar(20)
+  amount           Decimal    @db.Decimal(36, 18)
+  direction        String     @db.VarChar(4)
+  timeToLive       Int
   requesterAddress String
-  status           String   @db.VarChar(10)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relations
-  quotes RFQQuote[]
-  order  RFQOrder?
+  status           String     @db.VarChar(10)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  order            RFQOrder?
+  quotes           RFQQuote[]
 
   @@index([baseAsset, quoteAsset])
   @@index([status])
@@ -88,22 +83,20 @@ model RFQRequest {
 }
 
 model RFQQuote {
-  id          String   @id @default(uuid())
+  id          String     @id @default(uuid())
   requestId   String
   solverId    String
-  baseAmount  Decimal  @db.Decimal(36, 18)
-  quoteAmount Decimal  @db.Decimal(36, 18)
-  premium     Decimal  @db.Decimal(36, 18)
+  baseAmount  Decimal    @db.Decimal(36, 18)
+  quoteAmount Decimal    @db.Decimal(36, 18)
+  premium     Decimal    @db.Decimal(36, 18)
   expiryTime  Int
-  signature   String?  @db.Text
-  status      String   @db.VarChar(10)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  request RFQRequest @relation(fields: [requestId], references: [id])
-  solver  Solver     @relation(fields: [solverId], references: [id])
-  order   RFQOrder?
+  signature   String?
+  status      String     @db.VarChar(10)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  order       RFQOrder?
+  request     RFQRequest @relation(fields: [requestId], references: [id])
+  solver      Solver     @relation(fields: [solverId], references: [id])
 
   @@index([requestId])
   @@index([solverId])
@@ -111,30 +104,28 @@ model RFQQuote {
 }
 
 model RFQOrder {
-  id               String   @id @default(uuid())
-  requestId        String   @unique
-  quoteId          String   @unique
+  id               String     @id @default(uuid())
+  requestId        String     @unique
+  quoteId          String     @unique
   solverId         String
   requesterAddress String
   solverAddress    String
-  baseAsset        String   @db.VarChar(10)
-  quoteAsset       String   @db.VarChar(10)
-  baseChain        String   @db.VarChar(20)
-  quoteChain       String   @db.VarChar(20)
-  baseAmount       Decimal  @db.Decimal(36, 18)
-  quoteAmount      Decimal  @db.Decimal(36, 18)
-  premium          Decimal  @db.Decimal(36, 18)
+  baseAsset        String     @db.VarChar(10)
+  quoteAsset       String     @db.VarChar(10)
+  baseChain        String     @db.VarChar(20)
+  quoteChain       String     @db.VarChar(20)
+  baseAmount       Decimal    @db.Decimal(36, 18)
+  quoteAmount      Decimal    @db.Decimal(36, 18)
+  premium          Decimal    @db.Decimal(36, 18)
   timelock         Int
-  status           String   @db.VarChar(20)
+  status           String     @db.VarChar(20)
   baseTxHash       String?
   quoteTxHash      String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Relations
-  request RFQRequest @relation(fields: [requestId], references: [id])
-  quote   RFQQuote   @relation(fields: [quoteId], references: [id])
-  solver  Solver     @relation(fields: [solverId], references: [id])
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  quote            RFQQuote   @relation(fields: [quoteId], references: [id])
+  request          RFQRequest @relation(fields: [requestId], references: [id])
+  solver           Solver     @relation(fields: [solverId], references: [id])
 
   @@index([status])
   @@index([requesterAddress])

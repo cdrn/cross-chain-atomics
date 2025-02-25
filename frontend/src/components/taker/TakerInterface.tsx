@@ -4,119 +4,135 @@ import { QuoteList } from "./QuoteList";
 import { useWallet } from "../../contexts/WalletContext";
 import { RFQRequest, RFQQuote } from "../../types/rfq";
 
+// Get the base URL without the /api/rfq part
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export function TakerInterface() {
   const { address, isConnected } = useWallet();
+  const [error, setError] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<RFQRequest | null>(null);
   const [quotes, setQuotes] = useState<RFQQuote[]>([]);
-  const [error, setError] = useState<string>();
 
-  // Poll for quotes when there's an active request
   useEffect(() => {
-    if (!activeRequest) return;
+    let pollInterval: number | null = null;
 
-    const pollQuotes = async () => {
-      try {
-        const response = await fetch(`/api/rfq/quotes/${activeRequest.id}`);
-        if (!response.ok) throw new Error("Failed to fetch quotes");
-        const data = await response.json();
-        setQuotes(data);
-      } catch (err) {
-        console.error("Error polling quotes:", err);
-      }
+    if (activeRequest) {
+      const pollQuotes = async () => {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/rfq/request/${activeRequest.id}/quotes`
+          );
+          if (!response.ok) throw new Error("Failed to fetch quotes");
+          const data = await response.json();
+          setQuotes(data);
+        } catch (err) {
+          console.error("Error polling quotes:", err);
+        }
+      };
+
+      pollQuotes(); // Initial poll
+      pollInterval = window.setInterval(pollQuotes, 5000);
+    }
+
+    return () => {
+      if (pollInterval) window.clearInterval(pollInterval);
     };
-
-    // Poll every 5 seconds
-    const interval = setInterval(pollQuotes, 5000);
-    pollQuotes(); // Initial poll
-
-    return () => clearInterval(interval);
   }, [activeRequest]);
 
-  const handleCreateRequest = async (
-    request: Omit<RFQRequest, "id" | "status" | "createdAt" | "updatedAt">
-  ) => {
-    try {
-      if (!address) throw new Error("Please connect your wallet first");
+  const handleCreateRequest = async (formData: {
+    baseAsset: string;
+    quoteAsset: string;
+    baseChain: string;
+    quoteChain: string;
+    amount: number;
+    direction: "buy" | "sell";
+    timeToLive: number;
+  }) => {
+    if (!isConnected) {
+      setError("Please connect your wallet first");
+      return;
+    }
 
-      const response = await fetch("/api/rfq/requests", {
+    try {
+      setError(null);
+      const response = await fetch(`${API_BASE_URL}/rfq/request`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...request, requesterAddress: address }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...formData,
+          requesterAddress: address,
+        }),
       });
 
-      if (!response.ok) throw new Error("Failed to create request");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create RFQ request");
+      }
 
       const data = await response.json();
       setActiveRequest(data);
-      setError(undefined);
+      setQuotes([]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create request");
+      console.error("Error creating request:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to create RFQ request"
+      );
     }
   };
 
-  const handleAcceptQuote = async (quoteId: string) => {
+  const handleAcceptQuote = async (quote: RFQQuote) => {
+    if (!isConnected) {
+      setError("Please connect your wallet first");
+      return;
+    }
+
     try {
-      if (!address) throw new Error("Please connect your wallet first");
+      setError(null);
+      const response = await fetch(
+        `${API_BASE_URL}/rfq/quote/${quote.id}/accept`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requesterAddress: address,
+          }),
+        }
+      );
 
-      const response = await fetch(`/api/rfq/quotes/${quoteId}/accept`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requesterAddress: address }),
-      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to accept quote");
+      }
 
-      if (!response.ok) throw new Error("Failed to accept quote");
-
-      const data = await response.json();
-      // TODO: Navigate to swap execution page
-      console.log("Quote accepted, order created:", data);
+      // Clear the active request and quotes after accepting
+      setActiveRequest(null);
+      setQuotes([]);
     } catch (err) {
+      console.error("Error accepting quote:", err);
       setError(err instanceof Error ? err.message : "Failed to accept quote");
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Error Display */}
+    <div className="container mx-auto px-4 py-8">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
         </div>
       )}
 
-      {/* Quote Request Form */}
-      {isConnected && !activeRequest && (
-        <div className="bg-white shadow sm:rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
-              Request a Quote
-            </h2>
-            <QuoteRequestForm onSubmit={handleCreateRequest} />
-          </div>
-        </div>
-      )}
-
-      {/* Active Request and Quotes */}
-      {activeRequest && (
-        <div className="bg-white shadow sm:rounded-lg">
-          <div className="px-4 py-5 sm:p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
-              Active Request
-            </h2>
-            <div className="mb-6">
-              <p className="text-sm text-gray-500">
-                Request ID: {activeRequest.id}
-              </p>
-              <p className="text-sm text-gray-500">
-                Status: {activeRequest.status}
-              </p>
-              <p className="text-sm text-gray-500">
-                Amount: {activeRequest.amount.toString()}{" "}
-                {activeRequest.baseAsset}
-              </p>
-            </div>
-            <QuoteList quotes={quotes} onAcceptQuote={handleAcceptQuote} />
-          </div>
-        </div>
+      {!activeRequest ? (
+        <QuoteRequestForm onSubmit={handleCreateRequest} />
+      ) : (
+        <QuoteList
+          request={activeRequest}
+          quotes={quotes}
+          onAcceptQuote={handleAcceptQuote}
+        />
       )}
     </div>
   );

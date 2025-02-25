@@ -1,12 +1,14 @@
 export interface RFQRequest {
   id: string;
+  requesterAddress: string;
   baseAsset: string;
   quoteAsset: string;
   baseChain: string;
   quoteChain: string;
   amount: number;
-  requesterAddress: string;
-  status: "pending" | "quoted" | "expired" | "filled" | "cancelled";
+  direction: "buy" | "sell";
+  status: "pending" | "quoted" | "filled" | "expired" | "cancelled";
+  timeToLive: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -14,12 +16,11 @@ export interface RFQRequest {
 export interface RFQQuote {
   id: string;
   requestId: string;
-  makerAddress: string;
+  solverId: string;
   baseAmount: number;
   quoteAmount: number;
   premium: number;
   expiryTime: number;
-  signature?: string;
   status: "pending" | "accepted" | "rejected" | "expired";
   createdAt: string;
   updatedAt: string;
@@ -29,24 +30,16 @@ export interface RFQOrder {
   id: string;
   requestId: string;
   quoteId: string;
-  solverId: string;
-  requesterAddress: string;
-  solverAddress: string;
+  takerAddress: string;
+  makerAddress: string;
   baseAsset: string;
   quoteAsset: string;
   baseChain: string;
   quoteChain: string;
   baseAmount: number;
   quoteAmount: number;
-  premium: number;
-  timelock: number;
-  status:
-    | "pending"
-    | "baseAssetLocked"
-    | "quoteAssetLocked"
-    | "completed"
-    | "failed"
-    | "refunded";
+  direction: "buy" | "sell";
+  status: "pending" | "completed" | "failed";
   baseTxHash?: string;
   quoteTxHash?: string;
   createdAt: string;

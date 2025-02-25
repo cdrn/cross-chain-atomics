@@ -3,6 +3,8 @@ import { RequestList } from "./RequestList";
 import { useWallet } from "../../contexts/WalletContext";
 import { RFQRequest } from "../../types/rfq";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export function MakerInterface() {
   const { address, isConnected } = useWallet();
   const [requests, setRequests] = useState<RFQRequest[]>([]);
@@ -16,7 +18,7 @@ export function MakerInterface() {
 
     const checkRegistration = async () => {
       try {
-        const response = await fetch(`/api/rfq/solvers/${address}`);
+        const response = await fetch(`${API_BASE_URL}/rfq/solver/${address}`);
         setIsRegistered(response.ok);
       } catch (err) {
         console.error("Error checking solver registration:", err);
@@ -32,7 +34,7 @@ export function MakerInterface() {
 
     const pollRequests = async () => {
       try {
-        const response = await fetch("/api/rfq/requests/active");
+        const response = await fetch(`${API_BASE_URL}/rfq/requests/active`);
         if (!response.ok) throw new Error("Failed to fetch requests");
         const data = await response.json();
         setRequests(data);
@@ -54,7 +56,7 @@ export function MakerInterface() {
       setIsRegistering(true);
       setError(undefined);
 
-      const response = await fetch("/api/rfq/solvers", {
+      const response = await fetch(`${API_BASE_URL}/rfq/solver`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -95,18 +97,20 @@ export function MakerInterface() {
       const request = requests.find((r) => r.id === requestId);
       if (!request) throw new Error("Request not found");
 
+      // Calculate base and quote amounts based on the price and direction
+      const baseAmount = parseFloat(request.amount.toString());
+      const quoteAmount = baseAmount * price;
+
       setError(undefined);
-      const response = await fetch("/api/rfq/quotes", {
+      const response = await fetch(`${API_BASE_URL}/rfq/quote`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId,
-          makerAddress: address,
-          baseAsset: request.baseAsset,
-          quoteAsset: request.quoteAsset,
-          amount: request.amount,
-          price,
-          chain: request.baseChain,
+          solverId: address, // Using address as solverId
+          baseAmount,
+          quoteAmount,
+          premium: 0, // Set a default premium
           expiryTime: Math.floor(Date.now() / 1000) + 300, // 5 minutes from now
         }),
       });

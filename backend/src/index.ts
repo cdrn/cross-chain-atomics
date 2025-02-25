@@ -7,6 +7,7 @@ import { QuoteRequest } from "./types";
 import { parseEther } from "ethers";
 import { prisma } from "./db/client";
 import { RFQService } from "./services/rfq";
+import { RFQQuote } from "./types/rfq";
 
 // Load environment variables
 config();
@@ -285,6 +286,34 @@ app.post("/rfq/quote", async (req: Request, res: Response) => {
   }
 });
 
+// Get all quotes for a request
+app.get(
+  "/rfq/request/:requestId/quotes",
+  async (req: Request, res: Response) => {
+    try {
+      const { requestId } = req.params;
+      const quotes = await prisma.rFQQuote.findMany({
+        where: {
+          requestId,
+          status: "pending",
+        },
+      });
+
+      // Transform the quotes to match the expected format
+      const formattedQuotes = quotes.map((quote) => ({
+        ...quote,
+        signature: quote.signature || undefined,
+        status: quote.status as RFQQuote["status"],
+      }));
+
+      res.json(formattedQuotes);
+    } catch (error) {
+      console.error("Error fetching quotes for request:", error);
+      res.status(500).json({ error: "Failed to fetch quotes" });
+    }
+  }
+);
+
 // Accept a quote
 app.post("/rfq/quote/:quoteId/accept", async (req: Request, res: Response) => {
   try {
@@ -344,6 +373,27 @@ app.get(
     }
   }
 );
+
+// Get a solver by address
+app.get("/rfq/solver/:address", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    const solver = await prisma.solver.findFirst({
+      where: {
+        address,
+      },
+    });
+
+    if (!solver) {
+      return res.status(404).json({ error: "Solver not found" });
+    }
+
+    res.json(solver);
+  } catch (error) {
+    console.error("Error fetching solver:", error);
+    res.status(500).json({ error: "Failed to fetch solver" });
+  }
+});
 
 // Start scheduler and server
 export async function start() {
