@@ -242,13 +242,18 @@ export function SwapForm({ onSubmit, disabled }: SwapFormProps) {
 
         <button
           type="submit"
-          className={`w-full py-3 px-4 rounded-lg font-medium ${
+          className={`w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center ${
             disabled || loading
               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-blue-500 text-white hover:bg-blue-600"
+              : "bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-blue-600 hover:to-indigo-700 shadow-md transition-all duration-200 transform hover:scale-[1.01]"
           }`}
           disabled={disabled || loading}
         >
+          {!disabled && !loading && (
+            <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m-8 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          )}
           Start Swap
         </button>
       </form>

@@ -172,8 +172,11 @@ export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
                     onClick={() =>
                       setQuoteForm({ requestId: request.id, price: "" })
                     }
-                    className="text-blue-600 hover:text-blue-900"
+                    className="inline-flex items-center rounded-md border border-transparent bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >
+                    <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
                     Quote
                   </button>
                 )}

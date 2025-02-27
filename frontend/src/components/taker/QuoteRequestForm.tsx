@@ -225,8 +225,11 @@ export function QuoteRequestForm({ onSubmit }: QuoteRequestFormProps) {
         {/* Submit Button */}
         <button
           type="submit"
-          className="w-full bg-[#4F46E5] text-white text-lg font-medium py-4 px-6 rounded-xl hover:bg-[#4338CA] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4F46E5] transition-colors duration-200"
+          className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-lg font-medium py-4 px-6 rounded-xl hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg transition-all duration-200 transform hover:scale-[1.01] flex items-center justify-center"
         >
+          <svg className="mr-2 h-5 w-5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
           Request Quote
         </button>
       </div>
