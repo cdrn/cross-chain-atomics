@@ -5,8 +5,16 @@ import { RFQRequest, RFQQuote } from "../../types/rfq";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 // Define interfaces to include quotes with each request
-interface RequestWithQuotes extends RFQRequest {
-  quotes: RFQQuote[];
+interface RequestWithQuotes extends Omit<RFQRequest, 'createdAt' | 'updatedAt'> {
+  quotes: QuoteWithDateObjects[];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+// Define a version of RFQQuote with Date objects instead of strings
+interface QuoteWithDateObjects extends Omit<RFQQuote, 'createdAt' | 'updatedAt'> {
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }
 
 export function MyQuotesInterface() {
@@ -54,7 +62,7 @@ export function MyQuotesInterface() {
             }
             
             // Convert date strings to Date objects
-            const processedRequest = {
+            const processedRequest: RequestWithQuotes = {
               ...request,
               createdAt: new Date(request.createdAt),
               updatedAt: new Date(request.updatedAt),
@@ -62,7 +70,7 @@ export function MyQuotesInterface() {
                 ...q,
                 createdAt: new Date(q.createdAt),
                 updatedAt: new Date(q.updatedAt)
-              }))
+              }) as QuoteWithDateObjects)
             };
             
             requestsWithQuotes.push(processedRequest);
