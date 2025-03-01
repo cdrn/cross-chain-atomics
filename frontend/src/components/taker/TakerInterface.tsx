@@ -116,12 +116,24 @@ export function TakerInterface() {
       setError(err instanceof Error ? err.message : "Failed to accept quote");
     }
   };
+  
+  const handleCancelRequest = () => {
+    // In a real implementation, we would call an API to cancel the request
+    // For now, just clear the local state
+    setActiveRequest(null);
+    setQuotes([]);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
+        <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg shadow-sm">
+          <div className="flex">
+            <svg className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-red-600 font-medium">{error}</p>
+          </div>
         </div>
       )}
 
@@ -132,6 +144,7 @@ export function TakerInterface() {
           request={activeRequest}
           quotes={quotes}
           onAcceptQuote={handleAcceptQuote}
+          onCancelRequest={handleCancelRequest}
         />
       )}
     </div>

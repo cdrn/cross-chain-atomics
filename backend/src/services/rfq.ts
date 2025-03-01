@@ -234,6 +234,29 @@ export class RFQService {
       status: request.status as RFQRequest["status"],
     }));
   }
+  
+  /**
+   * Get all requests for a specific user address, including recent or active ones.
+   * @param requesterAddress The wallet address of the requester
+   * @returns Array of RFQ requests associated with the requester
+   */
+  async getUserRequests(requesterAddress: string): Promise<RFQRequest[]> {
+    const requests = await prisma.rFQRequest.findMany({
+      where: {
+        requesterAddress,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 50, // Limit to the most recent 50 requests
+    });
+
+    return requests.map((request) => ({
+      ...request,
+      direction: request.direction as "buy" | "sell",
+      status: request.status as RFQRequest["status"],
+    }));
+  }
 
   async updateOrderStatus(
     orderId: string,

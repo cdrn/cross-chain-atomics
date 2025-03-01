@@ -129,32 +129,37 @@ export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
                     onSubmit={handleSubmit}
                     className="flex items-center gap-2 justify-end"
                   >
-                    <div className="relative rounded-md shadow-sm">
+                    <div className="relative">
                       <input
-                        type="number"
+                        type="text"
                         value={quoteForm.price}
-                        onChange={(e) =>
-                          setQuoteForm((prev) => ({
-                            ...prev,
-                            price: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => {
+                          // Allow only numbers and decimals
+                          const value = e.target.value;
+                          if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                            setQuoteForm((prev) => ({
+                              ...prev,
+                              price: value,
+                            }));
+                          }
+                        }}
                         placeholder="Price"
-                        className="block w-24 rounded-md border-gray-300 pr-12 focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                        step="any"
-                        min="0"
+                        className="block w-36 rounded-md border-gray-300 pr-16 pl-3 p-2 text-right focus:border-blue-500 focus:ring-blue-500 text-sm bg-white font-medium text-gray-900"
                         required
                       />
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                        <span className="text-gray-500 sm:text-sm">
+                        <span className="text-gray-500 text-sm font-medium">
                           {request.quoteAsset}
                         </span>
                       </div>
                     </div>
                     <button
                       type="submit"
-                      className="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-3 py-2 text-sm font-medium leading-4 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      className="inline-flex items-center rounded-md border border-transparent bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2 text-sm font-medium leading-4 text-white shadow-sm hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
                     >
+                      <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                      </svg>
                       Submit
                     </button>
                     <button
@@ -162,8 +167,11 @@ export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
                       onClick={() =>
                         setQuoteForm({ requestId: null, price: "" })
                       }
-                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
                     >
+                      <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
                       Cancel
                     </button>
                   </form>

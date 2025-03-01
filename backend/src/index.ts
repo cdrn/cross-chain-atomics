@@ -395,6 +395,18 @@ app.get("/rfq/solver/:address", async (req: Request, res: Response) => {
   }
 });
 
+// Get all requests for a specific user address
+app.get("/rfq/user/:address/requests", async (req: Request, res: Response) => {
+  try {
+    const { address } = req.params;
+    const requests = await rfqService.getUserRequests(address);
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching user requests:", error);
+    res.status(500).json({ error: "Failed to fetch user requests" });
+  }
+});
+
 // Start scheduler and server
 export async function start() {
   try {

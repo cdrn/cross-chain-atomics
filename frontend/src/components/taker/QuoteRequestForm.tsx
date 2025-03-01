@@ -35,7 +35,10 @@ export function QuoteRequestForm({ onSubmit }: QuoteRequestFormProps) {
     e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    // Don't handle amount changes here - they are handled in the input directly
+    if (name !== 'amount') {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const selectClass =
@@ -112,17 +115,26 @@ export function QuoteRequestForm({ onSubmit }: QuoteRequestFormProps) {
           </div>
           <div>
             <label className={labelClass}>Amount</label>
-            <input
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              placeholder="0.00"
-              step="any"
-              min="0"
-              required
-              className="w-full bg-white py-3 px-4 rounded-lg border border-gray-200 text-gray-900 text-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                name="amount"
+                value={formData.amount}
+                onChange={(e) => {
+                  // Allow only numbers and decimals
+                  const value = e.target.value;
+                  if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                    setFormData((prev) => ({ ...prev, amount: value }));
+                  }
+                }}
+                placeholder="0.00"
+                required
+                className="w-full bg-white py-3 px-4 pr-12 rounded-lg border border-gray-200 text-gray-900 text-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-right"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-4">
+                <span className="text-gray-500 font-medium">{formData.baseAsset}</span>
+              </div>
+            </div>
           </div>
         </div>
 

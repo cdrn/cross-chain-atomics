@@ -143,18 +143,24 @@ export function SwapForm({ onSubmit, disabled }: SwapFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               You Pay (ETH)
             </label>
-            <div className="flex items-center space-x-2">
+            <div className="relative">
               <input
-                type="number"
+                type="text"
                 value={ethAmount}
-                onChange={(e) => setEthAmount(e.target.value)}
+                onChange={(e) => {
+                  // Allow only numbers and decimals
+                  const value = e.target.value;
+                  if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                    setEthAmount(value);
+                  }
+                }}
                 placeholder="0.0"
-                step="0.01"
-                min="0"
-                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white font-medium text-right"
                 disabled={disabled || loading}
               />
-              <span className="text-sm font-medium text-gray-600">ETH</span>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                <span className="text-gray-500 font-medium">ETH</span>
+              </div>
             </div>
           </div>
 
@@ -180,18 +186,24 @@ export function SwapForm({ onSubmit, disabled }: SwapFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               You Receive (BTC)
             </label>
-            <div className="flex items-center space-x-2">
+            <div className="relative">
               <input
-                type="number"
+                type="text"
                 value={btcAmount}
-                onChange={(e) => setBtcAmount(e.target.value)}
+                onChange={(e) => {
+                  // Allow only numbers and decimals
+                  const value = e.target.value;
+                  if (value === '' || /^[0-9]*\.?[0-9]*$/.test(value)) {
+                    setBtcAmount(value);
+                  }
+                }}
                 placeholder="0.0"
-                step="0.00001"
-                min="0"
-                className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full p-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 bg-white font-medium text-right"
                 disabled={disabled || loading}
               />
-              <span className="text-sm font-medium text-gray-600">BTC</span>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                <span className="text-gray-500 font-medium">BTC</span>
+              </div>
             </div>
           </div>
 

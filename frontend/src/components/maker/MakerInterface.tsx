@@ -11,6 +11,7 @@ export function MakerInterface() {
   const [error, setError] = useState<string>();
   const [isRegistered, setIsRegistered] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [solverId, setSolverId] = useState<string>("");
 
   // Check if maker is registered
   useEffect(() => {
@@ -19,7 +20,14 @@ export function MakerInterface() {
     const checkRegistration = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/rfq/solver/${address}`);
-        setIsRegistered(response.ok);
+        if (response.ok) {
+          const data = await response.json();
+          setIsRegistered(true);
+          setSolverId(data.id); // Store the solver ID for later use
+        } else {
+          setIsRegistered(false);
+          setSolverId("");
+        }
       } catch (err) {
         console.error("Error checking solver registration:", err);
       }
@@ -93,6 +101,7 @@ export function MakerInterface() {
   const handleSubmitQuote = async (requestId: string, price: number) => {
     try {
       if (!address) throw new Error("Please connect your wallet first");
+      if (!solverId) throw new Error("Solver ID not found. Please try registering again");
 
       const request = requests.find((r) => r.id === requestId);
       if (!request) throw new Error("Request not found");
@@ -107,7 +116,7 @@ export function MakerInterface() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId,
-          solverId: address, // Using address as solverId
+          solverId, // Use the actual solver ID retrieved from the registration
           baseAmount,
           quoteAmount,
           premium: 0, // Set a default premium
@@ -115,7 +124,16 @@ export function MakerInterface() {
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to submit quote");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit quote");
+      } else {
+        // Clear the error and indicate success
+        setError(undefined);
+        // Refresh the requests list
+        const updatedRequests = requests.filter(r => r.id !== requestId);
+        setRequests(updatedRequests);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit quote");
     }
@@ -138,8 +156,13 @@ export function MakerInterface() {
     <div className="space-y-8">
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="bg-red-50 border border-red-300 rounded-lg p-4 shadow-sm">
+          <div className="flex">
+            <svg className="h-5 w-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-red-600 font-medium">{error}</p>
+          </div>
         </div>
       )}
 
@@ -159,10 +182,24 @@ export function MakerInterface() {
               <button
                 onClick={handleRegister}
                 disabled={isRegistering}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 
-                  focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 shadow-md transition-all duration-200 transform hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isRegistering ? "Registering..." : "Register Now"}
+                {isRegistering ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Registering...
+                  </>
+                ) : (
+                  <>
+                    <svg className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Register Now
+                  </>
+                )}
               </button>
             </div>
           </div>
