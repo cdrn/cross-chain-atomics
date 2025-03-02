@@ -82,6 +82,25 @@ export function TakerInterface() {
     }
   };
 
+  // Generate preimage and hashlock for atomic swap
+  const generatePreimage = (): { preimage: string; hashlock: string } => {
+    // Generate a random 32-byte preimage using crypto.getRandomValues
+    const array = new Uint8Array(32);
+    window.crypto.getRandomValues(array);
+    
+    // Convert to hex string
+    const preimage = Array.from(array)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    
+    // Calculate hashlock using SHA-256
+    const hashBuffer = crypto.subtle.digestSync('SHA-256', new TextEncoder().encode(preimage));
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashlock = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    
+    return { preimage, hashlock };
+  };
+
   const handleAcceptQuote = async (quote: RFQQuote) => {
     if (!isConnected) {
       setError("Please connect your wallet first");
@@ -90,6 +109,13 @@ export function TakerInterface() {
 
     try {
       setError(null);
+      
+      // Generate the preimage and hashlock
+      const { preimage, hashlock } = generatePreimage();
+      
+      // Store preimage in localStorage (for demo purposes - in a real app, use more secure storage)
+      localStorage.setItem(`preimage_${quote.id}`, preimage);
+      
       const response = await fetch(
         `${API_BASE_URL}/rfq/quote/${quote.id}/accept`,
         {
@@ -99,6 +125,7 @@ export function TakerInterface() {
           },
           body: JSON.stringify({
             requesterAddress: address,
+            hashlock: hashlock,
           }),
         }
       );
@@ -107,6 +134,14 @@ export function TakerInterface() {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to accept quote");
       }
+      
+      // Get the order data which should include the hashlock
+      const orderData = await response.json();
+      
+      // Initialize the atomic swap process with the order data
+      // TODO: Navigate to swap execution page or initialize swap component
+      console.log("Swap initiated with hashlock:", hashlock);
+      console.log("Order data:", orderData);
 
       // Clear the active request and quotes after accepting
       setActiveRequest(null);

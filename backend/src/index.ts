@@ -318,13 +318,14 @@ app.get(
 app.post("/rfq/quote/:quoteId/accept", async (req: Request, res: Response) => {
   try {
     const { quoteId } = req.params;
-    const { requesterAddress } = req.body;
+    const { requesterAddress, hashlock } = req.body;
 
     if (!requesterAddress) {
       return res.status(400).json({ error: "Requester address is required" });
     }
 
-    const order = await rfqService.acceptQuote(quoteId, requesterAddress);
+    // Pass hashlock parameter to the service if provided
+    const order = await rfqService.acceptQuote(quoteId, requesterAddress, hashlock);
     res.json(order);
   } catch (error) {
     console.error("Error accepting quote:", error);

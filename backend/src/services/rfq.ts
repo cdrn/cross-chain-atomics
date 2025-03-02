@@ -94,7 +94,8 @@ export class RFQService {
    */
   async acceptQuote(
     quoteId: string,
-    requesterAddress: string
+    requesterAddress: string,
+    hashlock?: string
   ): Promise<RFQOrder> {
     // Get the quote first to check expiry
     const quote = await prisma.rFQQuote.findUnique({
@@ -125,6 +126,9 @@ export class RFQService {
     // Start a transaction for the remaining operations
     return prisma.$transaction(async (tx) => {
       // Create the order
+      // Generate random hashlock if not provided
+      const finalHashlock = hashlock || `0x${ethers.randomBytes(32).toString('hex')}`;
+
       const order = await tx.rFQOrder.create({
         data: {
           requestId: quote.requestId,
@@ -141,6 +145,7 @@ export class RFQService {
           premium: quote.premium,
           timelock: Math.floor(Date.now() / 1000) + 3600, // 1 hour timelock
           status: "pending",
+          hashlock: finalHashlock, // Add hashlock for atomic swap
         },
       });
 

@@ -24,6 +24,7 @@ export interface RFQQuote {
   status: "pending" | "accepted" | "rejected" | "expired";
   createdAt: string;
   updatedAt: string;
+  hashlock?: string;
 }
 
 export interface RFQOrder {
@@ -42,6 +43,7 @@ export interface RFQOrder {
   status: "pending" | "completed" | "failed";
   baseTxHash?: string;
   quoteTxHash?: string;
+  hashlock: string;
   createdAt: string;
   updatedAt: string;
 }

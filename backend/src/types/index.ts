@@ -38,6 +38,7 @@ export interface Quote {
   premium: BigNumberish;
   expiryTime: number;
   signature?: string;
+  hashlock?: string;
 }
 
 export interface SwapExecution {
@@ -48,4 +49,5 @@ export interface SwapExecution {
   takerTxHash?: string;
   status: "pending" | "completed" | "failed";
   timestamp: number;
+  hashlock: string;
 }
