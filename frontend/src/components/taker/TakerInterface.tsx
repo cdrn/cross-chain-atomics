@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { QuoteRequestForm } from "./QuoteRequestForm";
 import { QuoteList } from "./QuoteList";
+import { SwapExecution } from "./SwapExecution";
 import { useWallet } from "../../contexts/WalletContext";
 import { RFQRequest, RFQQuote } from "../../types/rfq";
 
@@ -12,6 +13,8 @@ export function TakerInterface() {
   const [error, setError] = useState<string | null>(null);
   const [activeRequest, setActiveRequest] = useState<RFQRequest | null>(null);
   const [quotes, setQuotes] = useState<RFQQuote[]>([]);
+  const [showExecution, setShowExecution] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState<any>(null);
 
   useEffect(() => {
     let pollInterval: number | null = null;
@@ -138,11 +141,10 @@ export function TakerInterface() {
       // Get the order data which should include the hashlock
       const orderData = await response.json();
       
-      // Initialize the atomic swap process with the order data
-      // TODO: Navigate to swap execution page or initialize swap component
-      console.log("Swap initiated with hashlock:", hashlock);
-      console.log("Order data:", orderData);
-
+      // Show the SwapExecution component to initiate the swap
+      setShowExecution(true);
+      setCurrentOrder(orderData);
+      
       // Clear the active request and quotes after accepting
       setActiveRequest(null);
       setQuotes([]);
@@ -172,7 +174,21 @@ export function TakerInterface() {
         </div>
       )}
 
-      {!activeRequest ? (
+      {showExecution && currentOrder ? (
+        <div>
+          <button 
+            onClick={() => setShowExecution(false)}
+            className="mb-4 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <svg className="mr-2 h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Back to Quotes
+          </button>
+          
+          <SwapExecution order={currentOrder} />
+        </div>
+      ) : !activeRequest ? (
         <QuoteRequestForm onSubmit={handleCreateRequest} />
       ) : (
         <QuoteList

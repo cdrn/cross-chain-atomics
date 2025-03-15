@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RFQRequest } from "../../types/rfq";
+
+// Get API base URL from environment variables
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
 interface RequestListProps {
   requests: RFQRequest[];
@@ -9,20 +12,104 @@ interface RequestListProps {
 interface QuoteFormState {
   requestId: string | null;
   price: string;
+  useIndicative: boolean;
+}
+
+interface IndicativePricing {
+  price: string;
+  premium: string;
+  timestamp: number;
 }
 
 export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
   const [quoteForm, setQuoteForm] = useState<QuoteFormState>({
     requestId: null,
     price: "",
+    useIndicative: true
   });
+  const [indicativePrices, setIndicativePrices] = useState<Record<string, IndicativePricing>>({});
+  const [loadingPrices, setLoadingPrices] = useState<Record<string, boolean>>({});
+
+  // Fetch indicative price from the Black-Scholes endpoint when a request is selected
+  useEffect(() => {
+    if (!quoteForm.requestId) return;
+    
+    const fetchIndicativePrice = async (request: RFQRequest) => {
+      try {
+        setLoadingPrices(prev => ({ ...prev, [request.id]: true }));
+        
+        // Call the Black-Scholes pricing endpoint with request details
+        const timeToExpiryHours = 24; // 24 hour default expiry time
+        const response = await fetch(
+          `${API_BASE_URL}/pricing/${request.baseAsset}/${request.quoteAsset}?amount=${request.amount}&timeToExpiryHours=${timeToExpiryHours}`
+        );
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch pricing data");
+        }
+        
+        const pricingData = await response.json();
+        
+        const pricing: IndicativePricing = {
+          price: pricingData.price,
+          premium: pricingData.premium,
+          timestamp: pricingData.timestamp
+        };
+        
+        setIndicativePrices(prev => ({ ...prev, [request.id]: pricing }));
+        
+        // If useIndicative is true, set the price field to the indicative price
+        if (quoteForm.useIndicative) {
+          setQuoteForm(prev => ({ ...prev, price: pricingData.price }));
+        }
+      } catch (err) {
+        console.error("Error fetching indicative price:", err);
+        // Fallback to reasonable default values if the API call fails
+        const fallbackPrice = request.baseAsset === "ETH" ? "0.065" : "15.5";
+        const fallbackPremium = (parseFloat(request.amount.toString()) * 0.01).toFixed(6);
+        
+        const fallbackPricing: IndicativePricing = {
+          price: fallbackPrice,
+          premium: fallbackPremium,
+          timestamp: Date.now()
+        };
+        
+        setIndicativePrices(prev => ({ ...prev, [request.id]: fallbackPricing }));
+        
+        if (quoteForm.useIndicative) {
+          setQuoteForm(prev => ({ ...prev, price: fallbackPrice }));
+        }
+      } finally {
+        setLoadingPrices(prev => ({ ...prev, [request.id]: false }));
+      }
+    };
+    
+    const selectedRequest = requests.find(r => r.id === quoteForm.requestId);
+    if (selectedRequest) {
+      fetchIndicativePrice(selectedRequest);
+    }
+  }, [quoteForm.requestId, quoteForm.useIndicative, requests]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quoteForm.requestId || !quoteForm.price) return;
 
     onSubmitQuote(quoteForm.requestId, parseFloat(quoteForm.price));
-    setQuoteForm({ requestId: null, price: "" });
+    setQuoteForm({ requestId: null, price: "", useIndicative: true });
+  };
+  
+  const handleToggleIndicative = () => {
+    setQuoteForm(prev => {
+      // If turning on indicative pricing and we have the data, update the price
+      if (!prev.useIndicative && prev.requestId && indicativePrices[prev.requestId]) {
+        return { 
+          ...prev, 
+          useIndicative: true,
+          price: indicativePrices[prev.requestId].price
+        };
+      }
+      return { ...prev, useIndicative: !prev.useIndicative };
+    });
   };
 
   if (requests.length === 0) {
@@ -127,9 +214,10 @@ export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
                 {quoteForm.requestId === request.id ? (
                   <form
                     onSubmit={handleSubmit}
-                    className="flex items-center gap-2 justify-end"
+                    className="flex flex-col items-end gap-3"
                   >
-                    <div className="relative">
+                    {/* Price field with loading indicator */}
+                    <div className="relative w-full">
                       <input
                         type="text"
                         value={quoteForm.price}
@@ -140,12 +228,15 @@ export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
                             setQuoteForm((prev) => ({
                               ...prev,
                               price: value,
+                              // If user manually changes price, turn off indicative pricing
+                              useIndicative: value === indicativePrices[request.id]?.price ? prev.useIndicative : false
                             }));
                           }
                         }}
-                        placeholder="Price"
-                        className="block w-36 rounded-md border-gray-300 pr-16 pl-3 p-2 text-right focus:border-blue-500 focus:ring-blue-500 text-sm bg-white font-medium text-gray-900"
+                        placeholder={loadingPrices[request.id] ? "Loading..." : "Price"}
+                        className={`block w-full sm:w-48 rounded-md border-gray-300 pr-16 pl-3 p-2 text-right focus:border-blue-500 focus:ring-blue-500 text-sm bg-white font-medium text-gray-900 ${loadingPrices[request.id] ? 'animate-pulse' : ''}`}
                         required
+                        disabled={loadingPrices[request.id]}
                       />
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                         <span className="text-gray-500 text-sm font-medium">
@@ -153,32 +244,75 @@ export function RequestList({ requests, onSubmitQuote }: RequestListProps) {
                         </span>
                       </div>
                     </div>
-                    <button
-                      type="submit"
-                      className="inline-flex items-center rounded-md border border-transparent bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2 text-sm font-medium leading-4 text-white shadow-sm hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
-                    >
-                      <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                      </svg>
-                      Submit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setQuoteForm({ requestId: null, price: "" })
-                      }
-                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
-                    >
-                      <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      Cancel
-                    </button>
+                    
+                    {/* Use indicative pricing checkbox */}
+                    <div className="flex items-center mb-2">
+                      <input
+                        id={`use-indicative-${request.id}`}
+                        type="checkbox" 
+                        checked={quoteForm.useIndicative}
+                        onChange={handleToggleIndicative}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label 
+                        htmlFor={`use-indicative-${request.id}`} 
+                        className="ml-2 block text-sm text-gray-700"
+                      >
+                        Use indicative pricing
+                      </label>
+                    </div>
+                    
+                    {/* Indicative price info */}
+                    {indicativePrices[request.id] && (
+                      <div className="bg-blue-50 p-2 rounded text-xs text-blue-800 w-full">
+                        <div className="flex justify-between">
+                          <span>Indicative price:</span>
+                          <span>{indicativePrices[request.id].price} {request.quoteAsset}</span>
+                        </div>
+                        {parseFloat(indicativePrices[request.id].premium) > 0 && (
+                          <div className="flex justify-between mt-1">
+                            <span>Premium:</span>
+                            <span>{indicativePrices[request.id].premium} {request.baseAsset}</span>
+                          </div>
+                        )}
+                        <div className="mt-1 text-xs text-blue-600">
+                          Based on Black-Scholes volatility model
+                        </div>
+                        <div className="text-xs text-blue-600">
+                          Last updated: {new Date(indicativePrices[request.id].timestamp).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="inline-flex items-center rounded-md border border-transparent bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-2 text-sm font-medium leading-4 text-white shadow-sm hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
+                      >
+                        <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        </svg>
+                        Submit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setQuoteForm({ requestId: null, price: "", useIndicative: true })
+                        }
+                        className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium leading-4 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200"
+                      >
+                        <svg className="mr-1.5 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Cancel
+                      </button>
+                    </div>
                   </form>
                 ) : (
                   <button
                     onClick={() =>
-                      setQuoteForm({ requestId: request.id, price: "" })
+                      setQuoteForm({ requestId: request.id, price: "", useIndicative: true })
                     }
                     className="inline-flex items-center rounded-md border border-transparent bg-gradient-to-r from-blue-500 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                   >

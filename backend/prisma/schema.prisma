@@ -119,6 +119,7 @@ model RFQOrder {
   premium          Decimal    @db.Decimal(36, 18)
   timelock         Int
   status           String     @db.VarChar(20)
+  hashlock         String     @db.VarChar(255)
   baseTxHash       String?
   quoteTxHash      String?
   createdAt        DateTime   @default(now())

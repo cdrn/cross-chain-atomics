@@ -68,6 +68,84 @@ app.post("/quote", (req: Request, res: Response) => {
   }
 });
 
+// Black-Scholes pricing endpoint
+app.get("/pricing/:baseAsset/:quoteAsset", async (req: Request, res: Response) => {
+  try {
+    const { baseAsset, quoteAsset } = req.params;
+    const { amount = "1", timeToExpiryHours = "24" } = req.query;
+    
+    // Get latest price from database
+    const latestPrice = await prisma.consolidatedPrice.findFirst({
+      where: {
+        baseAsset: baseAsset.toUpperCase(),
+        quoteAsset: quoteAsset.toUpperCase(),
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+    
+    if (!latestPrice) {
+      return res.status(404).json({ error: "Price data not found for trading pair" });
+    }
+    
+    // Get historical volatility for the pair
+    const volatilityMetric = await prisma.volatilityMetric.findFirst({
+      where: {
+        baseAsset: baseAsset.toUpperCase(),
+        quoteAsset: quoteAsset.toUpperCase(),
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+    
+    // Default volatility if no data is available
+    let volatility = 0.2; // 20% volatility as fallback
+    
+    if (volatilityMetric && volatilityMetric.volatility24h) {
+      volatility = parseFloat(volatilityMetric.volatility24h.toString()) / 100; // Convert percentage to decimal
+    }
+    
+    // Convert time to expiry to years (from hours)
+    const timeToExpiry = parseFloat(timeToExpiryHours as string) / (24 * 365);
+    const amountValue = parseFloat(amount as string);
+    
+    // Risk-free rate (simplified)
+    const riskFreeRate = 0.05; // 5% annual rate
+    
+    // Calculate premium based on Black-Scholes
+    const spotPrice = latestPrice.vwap;
+    const strikePrice = spotPrice; // At-the-money option
+    
+    const premium = pricingService.calculatePremium({
+      spotPrice: parseFloat(spotPrice.toString()),
+      strikePrice: parseFloat(strikePrice.toString()),
+      timeToExpiry,
+      volatility,
+      riskFreeRate,
+    });
+    
+    // Calculate premium amount based on trade size
+    const premiumAmount = premium * amountValue;
+    
+    res.json({
+      baseAsset: baseAsset.toUpperCase(),
+      quoteAsset: quoteAsset.toUpperCase(),
+      price: latestPrice.vwap.toString(),
+      volatility: (volatility * 100).toFixed(2), // Convert back to percentage for display
+      premium: premiumAmount.toFixed(8),
+      premiumPercent: (premium * 100).toFixed(2),
+      timeToExpiryHours: parseFloat(timeToExpiryHours as string),
+      amount: amountValue,
+      timestamp: latestPrice.timestamp,
+    });
+  } catch (error) {
+    console.error("Error calculating Black-Scholes pricing:", error);
+    res.status(500).json({ error: "Failed to calculate pricing" });
+  }
+});
+
 // Get latest price for a trading pair
 app.get(
   "/prices/:baseAsset/:quoteAsset",
@@ -371,6 +449,89 @@ app.get(
     } catch (error) {
       console.error("Error fetching best quote:", error);
       res.status(500).json({ error: "Failed to fetch best quote" });
+    }
+  }
+);
+
+// Get orders for a specific solver
+app.get(
+  "/rfq/solver/:solverId/orders",
+  async (req: Request, res: Response) => {
+    try {
+      const { solverId } = req.params;
+      
+      // Find orders where the solver is involved
+      const orders = await prisma.rFQOrder.findMany({
+        where: {
+          solverId,
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching solver orders:", error);
+      res.status(500).json({ error: "Failed to fetch solver orders" });
+    }
+  }
+);
+
+// Update order with Bitcoin lock transaction
+app.post(
+  "/rfq/order/:orderId/btclock",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId } = req.params;
+      const { txHash, solverAddress } = req.body;
+      
+      if (!txHash) {
+        return res.status(400).json({ error: "Transaction hash is required" });
+      }
+      
+      // Update the order with the Bitcoin transaction hash
+      const order = await prisma.rFQOrder.update({
+        where: { id: orderId },
+        data: {
+          baseTxHash: txHash,
+          // No status update yet - wait for confirmations
+        }
+      });
+      
+      res.json(order);
+    } catch (error) {
+      console.error("Error updating order with BTC lock:", error);
+      res.status(500).json({ error: "Failed to update order" });
+    }
+  }
+);
+
+// Update order with Ethereum claim transaction
+app.post(
+  "/rfq/order/:orderId/ethclaim",
+  async (req: Request, res: Response) => {
+    try {
+      const { orderId } = req.params;
+      const { txHash, solverAddress } = req.body;
+      
+      if (!txHash) {
+        return res.status(400).json({ error: "Transaction hash is required" });
+      }
+      
+      // Update the order with the Ethereum claim transaction hash
+      const order = await prisma.rFQOrder.update({
+        where: { id: orderId },
+        data: {
+          quoteTxHash: txHash,
+          status: "completed" // Mark as completed after ETH is claimed
+        }
+      });
+      
+      res.json(order);
+    } catch (error) {
+      console.error("Error updating order with ETH claim:", error);
+      res.status(500).json({ error: "Failed to update order" });
     }
   }
 );

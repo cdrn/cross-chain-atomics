@@ -56,6 +56,8 @@ export function SwapInterface() {
       maker: values.makerAddress,
       makerChain: "bitcoin" as const,
       takerChain: "ethereum" as const,
+      makerAsset: "BTC" as const,
+      takerAsset: "ETH" as const,
       makerAmount: ethers.parseUnits(values.btcAmount, 8).toString(), // BTC amount in sats
       takerAmount: ethers.parseEther(values.ethAmount).toString(), // ETH amount in wei
       expiryTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now

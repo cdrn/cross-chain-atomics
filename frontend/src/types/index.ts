@@ -8,6 +8,8 @@ export interface SwapOrder {
   taker?: string;
   makerChain: ChainType;
   takerChain: ChainType;
+  makerAsset: string;
+  takerAsset: string;
   makerAmount: BigNumberish;
   takerAmount: BigNumberish;
   expiryTime: number;

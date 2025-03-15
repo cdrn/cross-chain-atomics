@@ -141,7 +141,7 @@ export function SwapForm({ onSubmit, disabled }: SwapFormProps) {
           {/* You Pay */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              You Pay (ETH)
+              You Pay
             </label>
             <div className="relative">
               <input
@@ -184,7 +184,7 @@ export function SwapForm({ onSubmit, disabled }: SwapFormProps) {
           {/* You Receive */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              You Receive (BTC)
+              You Receive
             </label>
             <div className="relative">
               <input
@@ -210,7 +210,7 @@ export function SwapForm({ onSubmit, disabled }: SwapFormProps) {
           {/* Maker Address */}
           <div className="bg-gray-50 p-4 rounded-lg">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Maker Address (ETH)
+              Maker Address
             </label>
             <input
               type="text"
