@@ -81,9 +81,11 @@ export function MyQuotesInterface() {
       );
       
       // Sort by most recent first
-      requestsWithQuotes.sort((a, b) => 
-        (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
-      );
+      requestsWithQuotes.sort((a, b) => {
+        const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt as string).getTime();
+        const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt as string).getTime();
+        return bTime - aTime;
+      });
       
       setMyRequests(requestsWithQuotes);
     } catch (err) {

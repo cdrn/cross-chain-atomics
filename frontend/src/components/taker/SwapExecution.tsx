@@ -17,6 +17,8 @@ export function SwapExecution({ order }: SwapExecutionProps) {
     taker: order.takerAddress,
     makerChain: order.baseChain === "bitcoin" ? "bitcoin" : "ethereum",
     takerChain: order.quoteChain === "bitcoin" ? "bitcoin" : "ethereum",
+    makerAsset: order.baseAsset,
+    takerAsset: order.quoteAsset,
     makerAmount: order.baseAmount,
     takerAmount: order.quoteAmount,
     expiryTime: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now

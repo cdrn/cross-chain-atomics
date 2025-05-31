@@ -2,12 +2,7 @@ import { ethers, Contract, JsonRpcSigner } from "ethers";
 import { ChainTransaction } from "../types";
 import { ATOMIC_SWAP_ABI, KNOWN_DEPLOYMENTS } from "../config/contracts";
 
-// Add window.ethereum type
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
+// TypeScript declarations for window.ethereum are in vite-env.d.ts
 
 export class EthereumService {
   private provider: ethers.BrowserProvider;
@@ -28,6 +23,9 @@ export class EthereumService {
   ): Promise<{ address: string; chainId: number }> {
     try {
       // Request account access
+      if (!window.ethereum) {
+        throw new Error("Please install MetaMask!");
+      }
       await window.ethereum.request({ method: "eth_requestAccounts" });
       this.signer = await this.provider.getSigner();
 
@@ -40,9 +38,13 @@ export class EthereumService {
         this.contractAddress = contractAddress;
       } else {
         // Try to get from known deployments
-        this.contractAddress =
-          KNOWN_DEPLOYMENTS[chainId as keyof typeof KNOWN_DEPLOYMENTS]
-            ?.address || null;
+        const chainIdStr = chainId.toString();
+        if (chainIdStr in KNOWN_DEPLOYMENTS) {
+          this.contractAddress = 
+            KNOWN_DEPLOYMENTS[chainIdStr as keyof typeof KNOWN_DEPLOYMENTS]?.address || null;
+        } else {
+          this.contractAddress = null;
+        }
       }
 
       // Initialize contract if we have an address

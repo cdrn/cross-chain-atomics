@@ -3,6 +3,7 @@ import { BinanceAdapter } from "./exchanges/binance";
 import { CoinbaseAdapter } from "./exchanges/coinbase";
 import { AssetPair, ExchangeAdapter, PriceTick } from "./exchanges/types";
 import { Decimal } from "@prisma/client/runtime/library";
+import logger from "../utils/logger";
 
 export class PriceAggregatorService {
   private readonly exchanges: ExchangeAdapter[];
@@ -21,7 +22,7 @@ export class PriceAggregatorService {
 
   async fetchAndStorePrices(): Promise<void> {
     const timestamp = new Date();
-    console.log(`\nFetching prices at ${timestamp.toISOString()}`);
+    logger.info(`\nFetching prices at ${timestamp.toISOString()}`);
 
     const results = await Promise.allSettled(
       this.exchanges.map((exchange) =>
@@ -55,20 +56,33 @@ export class PriceAggregatorService {
               volumeBase: new Decimal(tick.volume24h),
               volumeQuote: new Decimal(tick.price * tick.volume24h),
             });
-            console.log(
+            logger.debug(
               `[${exchange.getName()}] ${pair.baseAsset}-${pair.quoteAsset}: ${
                 tick.price
-              } (vol: ${tick.volume24h})`
+              } (vol: ${tick.volume24h})`,
+              {
+                exchange: exchange.getName(),
+                pair: `${pair.baseAsset}-${pair.quoteAsset}`,
+                price: tick.price,
+                volume: tick.volume24h,
+              }
             );
           } catch (error) {
-            console.error(`Error processing symbol ${symbol}:`, error);
+            logger.error(`Error processing symbol ${symbol}:`, {
+              error: error instanceof Error ? error.message : String(error),
+              exchange: exchange.getName(),
+              symbol,
+            });
           }
         });
       } else {
-        console.error(
-          `Exchange ${this.exchanges[index].getName()} failed:`,
-          result.reason
-        );
+        logger.error(`Exchange ${this.exchanges[index].getName()} failed:`, {
+          reason:
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason),
+          exchange: this.exchanges[index].getName(),
+        });
       }
     });
 
@@ -77,13 +91,13 @@ export class PriceAggregatorService {
     }
 
     // Store raw price data
-    console.log(`\nStoring ${priceData.length} price points...`);
+    logger.info(`\nStoring ${priceData.length} price points...`);
     await prisma.exchangePrice.createMany({
       data: priceData,
     });
 
     // Calculate and store consolidated prices
-    console.log("\nCalculating consolidated prices...");
+    logger.info("\nCalculating consolidated prices...");
     await this.calculateConsolidatedPrices(timestamp);
 
     // After storing consolidated prices, update volatility metrics
@@ -129,8 +143,14 @@ export class PriceAggregatorService {
         },
       });
 
-      console.log(
-        `[VWAP] ${pair.baseAsset}-${pair.quoteAsset}: ${vwap} (from ${prices.length} exchanges, vol: ${totalVolumeBase})`
+      logger.info(
+        `[VWAP] ${pair.baseAsset}-${pair.quoteAsset}: ${vwap} (from ${prices.length} exchanges, vol: ${totalVolumeBase})`,
+        {
+          pair: `${pair.baseAsset}-${pair.quoteAsset}`,
+          vwap: vwap.toString(),
+          exchanges: prices.length,
+          volume: totalVolumeBase.toString(),
+        }
       );
     }
   }
@@ -192,7 +212,7 @@ export class PriceAggregatorService {
   }
 
   private async updateVolatilityMetrics(timestamp: Date): Promise<void> {
-    console.log("\nCalculating volatility metrics...");
+    logger.info("\nCalculating volatility metrics...");
 
     for (const pair of this.supportedPairs) {
       try {
@@ -228,16 +248,34 @@ export class PriceAggregatorService {
           },
         });
 
-        console.log(
-          `[VOL] ${pair.baseAsset}-${pair.quoteAsset}: ` +
-            `1h=${(volatility1h * 100).toFixed(2)}% ` +
-            `24h=${(volatility24h * 100).toFixed(2)}% ` +
-            `7d=${(volatility7d * 100).toFixed(2)}%`
-        );
+        // Format a readable volatility message
+        const volMessage = [
+          `[VOL] ${pair.baseAsset}-${pair.quoteAsset}:`,
+          `  1h = ${(volatility1h * 100).toFixed(2)}%`,
+          `  24h = ${(volatility24h * 100).toFixed(2)}%`,
+          `  7d = ${(volatility7d * 100).toFixed(2)}%`,
+        ].join("\n");
+
+        logger.info(volMessage, {
+          pair: `${pair.baseAsset}-${pair.quoteAsset}`,
+          volatility: {
+            "1h": `${(volatility1h * 100).toFixed(2)}%`,
+            "24h": `${(volatility24h * 100).toFixed(2)}%`,
+            "7d": `${(volatility7d * 100).toFixed(2)}%`,
+          },
+          volatilityRaw: {
+            "1h": volatility1h,
+            "24h": volatility24h,
+            "7d": volatility7d,
+          },
+        });
       } catch (error) {
-        console.error(
+        logger.error(
           `Error calculating volatility for ${pair.baseAsset}-${pair.quoteAsset}:`,
-          error
+          {
+            pair: `${pair.baseAsset}-${pair.quoteAsset}`,
+            error: error instanceof Error ? error.message : String(error),
+          }
         );
       }
     }

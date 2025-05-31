@@ -1,4 +1,4 @@
-import { Contract } from "ethers";
+// Contract ABI and deployment addresses
 
 // Known deployments on different networks
 export const KNOWN_DEPLOYMENTS = {

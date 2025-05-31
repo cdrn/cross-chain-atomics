@@ -1,15 +1,14 @@
 import cron from "node-cron";
 import { PriceAggregatorService } from "./price-aggregator";
 import { prisma } from "../db/client";
+import logger from "../utils/logger";
 
 export class SchedulerService {
   private readonly priceAggregator: PriceAggregatorService;
   private priceUpdateJob?: cron.ScheduledTask;
-  private readonly logger: Console;
 
-  constructor(logger: Console = console) {
+  constructor() {
     this.priceAggregator = new PriceAggregatorService();
-    this.logger = logger;
   }
 
   async start(): Promise<void> {
@@ -27,9 +26,11 @@ export class SchedulerService {
     try {
       // Test database connection
       await prisma.$queryRaw`SELECT 1`;
-      this.logger.info("Database connection successful");
+      logger.info("Database connection successful");
     } catch (error) {
-      this.logger.error("Database connection failed:", error);
+      logger.error("Database connection failed", {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }
@@ -39,36 +40,36 @@ export class SchedulerService {
     this.priceUpdateJob = cron.schedule("* * * * *", async () => {
       try {
         const startTime = Date.now();
-        this.logger.info("\n=== Starting price update job ===");
+        logger.info("\n=== Starting price update job ===");
 
         await this.priceAggregator.fetchAndStorePrices();
 
         const duration = Date.now() - startTime;
-        this.logger.info(
-          `=== Price update job completed in ${duration}ms ===\n`
-        );
+        logger.info(`=== Price update job completed in ${duration}ms ===\n`, { durationMs: duration });
       } catch (error) {
-        this.logger.error("Price update job failed:", error);
+        logger.error("Price update job failed", {
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
     });
 
-    this.logger.info("Price update job scheduled (running every minute)");
+    logger.info("Price update job scheduled", { schedule: "* * * * *" });
   }
 
   // Method to manually trigger a price update
   async updatePricesNow(): Promise<void> {
     try {
       const startTime = Date.now();
-      this.logger.info("\n=== Starting manual price update ===");
+      logger.info("\n=== Starting manual price update ===");
 
       await this.priceAggregator.fetchAndStorePrices();
 
       const duration = Date.now() - startTime;
-      this.logger.info(
-        `=== Manual price update completed in ${duration}ms ===\n`
-      );
+      logger.info(`=== Manual price update completed in ${duration}ms ===\n`, { durationMs: duration });
     } catch (error) {
-      this.logger.error("Manual price update failed:", error);
+      logger.error("Manual price update failed", {
+        error: error instanceof Error ? error.message : String(error)
+      });
       throw error;
     }
   }
